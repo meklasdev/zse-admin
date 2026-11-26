@@ -15,6 +15,10 @@
   <ItemGroup>
     <!-- Adapter LDAP (etap M1). Pakiet dostarcza System.DirectoryServices.Protocols na każdą platformę. -->
     <PackageReference Include="System.DirectoryServices.Protocols" Version="8.0.0" />
+    <!-- M2: EventLogReader/EventLogQuery do zdalnego odczytu dziennika Security (Windows). -->
+    <PackageReference Include="System.Diagnostics.EventLog" Version="8.0.0" />
+    <!-- M3: Negotiate/Kerberos dla Kestrel (IIS/HTTP.sys dostarczają WindowsIdentity samodzielnie). -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -22,6 +26,11 @@
     <None Update="classrooms.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <!-- Bramka produkcyjna M3 musi być obecna także po publish. -->
+    <Content Update="appsettings.Production.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

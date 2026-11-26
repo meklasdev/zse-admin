@@ -16,11 +16,36 @@ public sealed class ConnectionRegistry
     public void Remove(WsConnection connection) => _connections.TryRemove(connection.Id, out _);
 
     /// <summary>Wysyła kopertę do wszystkich sesji mających dane uprawnienie; błędy pojedynczej sesji są ignorowane.</summary>
-    public async Task BroadcastAsync(WsEnvelope envelope, string capability, CancellationToken cancellationToken)
+    public Task BroadcastAsync(
+        WsEnvelope envelope,
+        string capability,
+        CancellationToken cancellationToken) =>
+        BroadcastAsync(
+            identity => identity.Has(capability) ? envelope : null,
+            cancellationToken);
+
+    /// <summary>
+    /// Wariant z filtrem per sesja (M3): kolektor logowań buduje kopertę tylko z tymi
+    /// zdarzeniami, które dana tożsamość może zobaczyć. <c>null</c> = nic nie wysyłaj.
+    /// </summary>
+    public async Task BroadcastAsync(
+        Func<ClientIdentity, WsEnvelope?> envelopeFactory,
+        CancellationToken cancellationToken)
     {
         foreach (var connection in _connections.Values)
         {
-            if (!connection.Identity.Has(capability))
+            WsEnvelope? envelope;
+            try
+            {
+                envelope = envelopeFactory(connection.Identity);
+            }
+            catch (Exception)
+            {
+                // Błąd polityki nie może przerwać rozgłaszania do pozostałych sesji.
+                continue;
+            }
+
+            if (envelope is null)
             {
                 continue;
             }

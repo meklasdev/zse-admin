@@ -146,6 +146,13 @@ public sealed class WsClientConnection : IAsyncDisposable
                 using var socket = new ClientWebSocket();
                 socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(20);
 
+                // M3: bez tokenu używamy zintegrowanego uwierzytelniania Windows
+                // (Negotiate/Kerberos) — dotyczy wss:// w trybie produkcyjnym.
+                if (string.IsNullOrWhiteSpace(_token))
+                {
+                    socket.Options.UseDefaultCredentials = true;
+                }
+
                 await socket.ConnectAsync(BuildUri(), cancellationToken).ConfigureAwait(false);
 
                 _socket = socket;

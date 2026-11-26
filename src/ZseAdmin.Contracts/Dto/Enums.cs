@@ -33,3 +33,21 @@ public enum DataCompleteness
     /// <summary>Źródło nie było dostępne — brak danych nie oznacza braku zdarzeń.</summary>
     Unavailable = 2
 }
+
+/// <summary>
+/// Operacja zmieniająca stan (etap M4). Każda wymaga potwierdzenia i wpisu audytowego.
+/// </summary>
+public enum AdminActionKind
+{
+    /// <summary>Restart stacji (<c>computers.control</c>).</summary>
+    RestartComputer = 1,
+
+    /// <summary>Zablokowanie ekranu stacji (<c>computers.control</c>).</summary>
+    LockComputer = 2,
+
+    /// <summary>Reset hasła konta AD; hasło tymczasowe generuje serwer (<c>users.write</c>).</summary>
+    ResetPassword = 3,
+
+    /// <summary>Dodanie konta do grupy AD (<c>users.write</c>).</summary>
+    AddToGroup = 4
+}

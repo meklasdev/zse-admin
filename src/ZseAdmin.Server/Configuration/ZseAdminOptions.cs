@@ -8,12 +8,12 @@ public sealed class ZseAdminOptions
     /// <summary>Nazwa środowiska pokazywana w /healthz i logach.</summary>
     public string Environment { get; set; } = "Development";
 
-    /// <summary>Jak używać danych testowych zamiast AD (MVP).</summary>
+    /// <summary>Jak używać danych testowych zamiast AD (development/CI).</summary>
     public bool UseMockData { get; set; } = true;
 
     /// <summary>
     /// Tryb przejściowy M1: prawdziwe AD, ale historia logowań jeszcze z danych przykładowych.
-    /// Na produkcji ustaw <c>false</c> — wtedy serwer jawnie zwraca „historia niedostępna (etap M2)”.
+    /// Od M2 nie jest potrzebny: bufor logowań ma własne źródło. Produkcja wymaga <c>false</c>.
     /// </summary>
     public bool UseMockDataForLogins { get; set; } = true;
 
@@ -31,6 +31,15 @@ public sealed class ZseAdminOptions
     public StatusProbeOptions StatusProbe { get; set; } = new();
 
     public FreshnessOptions Freshness { get; set; } = new();
+
+    /// <summary>Historia logowań (M2): zbieranie, bufor i retencja.</summary>
+    public LoginHistoryOptions LoginHistory { get; set; } = new();
+
+    /// <summary>Rejestr audytu (M3/M4).</summary>
+    public AuditOptions Audit { get; set; } = new();
+
+    /// <summary>Akcje na stacjach i zapis do AD (M4).</summary>
+    public ActionOptions Actions { get; set; } = new();
 }
 
 /// <summary>Konfiguracja pliku z pracowniami (ADR-0005).</summary>
@@ -51,7 +60,7 @@ public sealed class DirectoryOptions
 
     public int Port { get; set; } = 389;
 
-    /// <summary>Wymuś LDAPS (636). W produkcji powinno być <c>true</c>.</summary>
+    /// <summary>Wymuś LDAPS (636). W produkcji musi być <c>true</c> (zapis <c>unicodePwd</c>).</summary>
     public bool UseSsl { get; set; }
 
     /// <summary>Baza wyszukiwania, np. <c>DC=zse,DC=local</c>. Pusta = wyliczona z <see cref="Domain"/>.</summary>
@@ -102,4 +111,65 @@ public sealed class FreshnessOptions
     public int LoginsSeconds { get; set; } = 900;
 
     public int DirectorySeconds { get; set; } = 3600;
+
+    public int AuditSeconds { get; set; } = 3600;
+}
+
+/// <summary>
+/// M2 — lokalny bufor historii logowań. Zdarzenia 4624/4634/4625 są pobierane cyklicznie,
+/// deduplikowane i usuwane po <see cref="RetentionDays"/> dniach.
+/// </summary>
+public sealed class LoginHistoryOptions
+{
+    /// <summary>Gdy <c>false</c>, serwer jawnie zwraca <c>unavailable</c> (tryb awaryjny).</summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary><c>Mock</c> (development), <c>WindowsEventLog</c> (odczyt zdalny), <c>WefFile</c> (WEF).</summary>
+    public string Source { get; set; } = "WindowsEventLog";
+
+    /// <summary>
+    /// Interwał pobierania (sekundy). Serwer przycina do przedziału 10–120 s, więc nowe
+    /// logowanie jest widoczne najpóźniej po 2 minutach (kryterium M2).
+    /// </summary>
+    public int PollSeconds { get; set; } = 60;
+
+    /// <summary>Retencja aplikacji (dni). Po jej upływie zdarzenia są fizycznie usuwane.</summary>
+    public int RetentionDays { get; set; } = 30;
+
+    /// <summary>Twardy limit bufora; przy przepełnieniu giną najstarsze zdarzenia.</summary>
+    public int MaxEvents { get; set; } = 20_000;
+
+    /// <summary>Ile minut historii wczytać przy starcie (gdy nie ma jeszcze znacznika czasu).</summary>
+    public int LookbackMinutes { get; set; } = 120;
+
+    /// <summary>Nakładanie się kolejnych odczytów (minuty) — chroni przed utratą zdarzeń na granicy cyklu.</summary>
+    public int OverlapMinutes { get; set; } = 5;
+
+    /// <summary>Katalog z plikami JSONL, gdy <see cref="Source"/> = <c>WefFile</c>.</summary>
+    public string WefDirectory { get; set; } = "wef";
+}
+
+/// <summary>M3 — rejestr audytu operacji. Retencja 12 miesięcy.</summary>
+public sealed class AuditOptions
+{
+    public int RetentionMonths { get; set; } = 12;
+
+    /// <summary>
+    /// Opcjonalny plik JSONL (append-only). Pusty = audyt tylko w pamięci procesu.
+    /// W produkcji należy go ustawić i objąć kopiami zapasowymi.
+    /// </summary>
+    public string? FilePath { get; set; }
+}
+
+/// <summary>M4 — potwierdzanie akcji.</summary>
+public sealed class ActionOptions
+{
+    /// <summary>Ważność tokenu potwierdzenia (sekundy).</summary>
+    public int ConfirmationSeconds { get; set; } = 120;
+
+    /// <summary>Opóźnienie restartu stacji (sekundy), żeby użytkownik zdążył zapisać pracę.</summary>
+    public int RestartDelaySeconds { get; set; } = 30;
+
+    /// <summary>Wyłącznik bezpieczeństwa: <c>false</c> blokuje wszystkie zapisy.</summary>
+    public bool AllowWrites { get; set; } = true;
 }

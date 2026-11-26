@@ -27,7 +27,9 @@ public partial class App : Application
             return;
         }
 
-        _connection = new WsClientConnection(endpoint, settings.Token);
+        // M3: produkcja = Negotiate/Kerberos (brak tokenu, UseDefaultCredentials w kliencie WS).
+        var token = settings.UseWindowsAuth ? null : settings.Token;
+        _connection = new WsClientConnection(endpoint, token);
         var api = new ZseAdminApiClient(_connection);
         var dispatcher = new DispatcherAdapter(Dispatcher);
 

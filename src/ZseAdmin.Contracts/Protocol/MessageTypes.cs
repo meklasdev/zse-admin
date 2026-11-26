@@ -8,10 +8,22 @@ public static class MessageTypes
     public const string Error = "error";
     public const string ComputerStatusEvent = "event.computer.status";
 
+    /// <summary>Nowe zdarzenia logowań z bufora M2 (push, bez requestId).</summary>
+    public const string LoginEventsEvent = "event.logins.new";
+
     // Klient → serwer (i odpowiedź z tym samym typem)
     public const string Ping = "ping";
     public const string ClassroomsList = "classrooms.list";
     public const string ComputersList = "computers.list";
     public const string LoginsQuery = "logins.query";
     public const string UsersGet = "users.get";
+
+    /// <summary>Przygotowanie akcji: serwer zwraca opis, stan „przed” i token potwierdzenia.</summary>
+    public const string ActionPrepare = "action.prepare";
+
+    /// <summary>Wykonanie potwierdzonej akcji; jedyna droga zapisu do AD i na stacje.</summary>
+    public const string ActionExecute = "action.execute";
+
+    /// <summary>Odczyt rejestru audytu (<c>audit.read</c>).</summary>
+    public const string AuditQuery = "audit.query";
 }

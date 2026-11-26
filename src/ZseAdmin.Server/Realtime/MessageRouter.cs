@@ -9,8 +9,9 @@ namespace ZseAdmin.Server.Realtime;
 
 /// <summary>
 /// Jedno miejsce, w którym wiadomości klienta zamieniają się w odpowiedzi.
-/// Każdy przypadek najpierw sprawdza uprawnienie, potem pyta źródło danych,
-/// a na końcu dokłada metadane świeżości.
+/// Każdy przypadek najpierw sprawdza uprawnienie (M0), potem zakres danych (M3),
+/// pyta źródło i na końcu dokłada metadane świeżości. Akcje (M4) idą przez
+/// <see cref="AdminActionService"/> z potwierdzeniem i audytem.
 /// </summary>
 public sealed class MessageRouter
 {
@@ -24,6 +25,9 @@ public sealed class MessageRouter
     private readonly FreshnessService _freshness;
     private readonly ZseAdminOptions _options;
     private readonly IClock _clock;
+    private readonly ILoginAccessPolicy _loginAccess;
+    private readonly IAuditLog _audit;
+    private readonly AdminActionService _actions;
 
     public MessageRouter(
         IClassroomDirectory classrooms,
@@ -32,7 +36,10 @@ public sealed class MessageRouter
         IAdDirectory users,
         FreshnessService freshness,
         ZseAdminOptions options,
-        IClock clock)
+        IClock clock,
+        ILoginAccessPolicy loginAccess,
+        IAuditLog audit,
+        AdminActionService actions)
     {
         _classrooms = classrooms;
         _computers = computers;
@@ -41,6 +48,9 @@ public sealed class MessageRouter
         _freshness = freshness;
         _options = options;
         _clock = clock;
+        _loginAccess = loginAccess;
+        _audit = audit;
+        _actions = actions;
     }
 
     public WelcomeResponse BuildWelcome(ClientIdentity identity, string sessionId) => new(
@@ -50,7 +60,8 @@ public sealed class MessageRouter
         UserName: identity.Name,
         Role: identity.Role,
         Capabilities: identity.Capabilities,
-        ServerTimeUtc: _clock.UtcNow);
+        ServerTimeUtc: _clock.UtcNow,
+        ClassroomScope: _loginAccess.ClassroomScopeFor(identity));
 
     public async Task<WsEnvelope> HandleAsync(
         WsEnvelope request,
@@ -99,11 +110,22 @@ public sealed class MessageRouter
             case MessageTypes.UsersGet:
                 return await HandleUsersAsync(request, identity, cancellationToken);
 
+            case MessageTypes.AuditQuery:
+                return await HandleAuditAsync(request, identity, cancellationToken);
+
+            case MessageTypes.ActionPrepare:
+                return await HandleActionPrepareAsync(request, identity, cancellationToken);
+
+            case MessageTypes.ActionExecute:
+                return await HandleActionExecuteAsync(request, identity, cancellationToken);
+
             case MessageTypes.Welcome:
-                // Powitanie wysyła wyłącznie serwer po połączeniu; żądanie od klienta to błąd protokołu.
+            case MessageTypes.ComputerStatusEvent:
+            case MessageTypes.LoginEventsEvent:
+                // Powitanie i zdarzenia wysyła wyłącznie serwer.
                 throw new ProtocolException(
                     ErrorCode.InvalidRequest,
-                    "Typ 'welcome' jest zarezerwowany dla serwera.");
+                    $"Typ '{request.Type}' jest zarezerwowany dla serwera.");
 
             default:
                 throw new ProtocolException(
@@ -163,6 +185,9 @@ public sealed class MessageRouter
             Take = Math.Clamp(query.Take <= 0 ? DefaultLoginsTake : query.Take, 1, MaxLoginsTake)
         };
 
+        // M3: serwer nadpisuje zakres pracowni, nawet jeśli klient go podał.
+        query = await _loginAccess.ScopeAsync(identity, query, cancellationToken).ConfigureAwait(false);
+
         var result = await _logins.QueryAsync(query, cancellationToken);
         var freshness = _freshness.Create(
             "Dzienniki zabezpieczeń stacji",
@@ -170,9 +195,11 @@ public sealed class MessageRouter
             TimeSpan.FromSeconds(_options.Freshness.LoginsSeconds));
 
         // Pytanie o zakres poza retencją nie może wyglądać jak „nikt się nie logował”.
+        // Bufor M2 też to sygnalizuje — nie powielamy komunikatu.
         if (query.FromUtc is { } from &&
             _logins.RetentionStartUtc is { } retentionStart &&
-            from < retentionStart)
+            from < retentionStart &&
+            !(freshness.Note?.Contains("retencj", StringComparison.OrdinalIgnoreCase) ?? false))
         {
             var rangeNote =
                 $"Żądany zakres zaczyna się przed retencją historii (od {retentionStart:yyyy-MM-dd HH:mm} UTC).";
@@ -218,5 +245,56 @@ public sealed class MessageRouter
         }
 
         return WsEnvelope.Create(request.Type, request.RequestId, new UserResponse(result.User, freshness));
+    }
+
+    private async Task<WsEnvelope> HandleAuditAsync(
+        WsEnvelope request,
+        ClientIdentity identity,
+        CancellationToken cancellationToken)
+    {
+        CapabilityGuard.Require(identity, Capability.AuditRead);
+
+        var query = request.ReadPayload<AuditQueryRequest>() ?? new AuditQueryRequest();
+        var result = await _audit.QueryAsync(query.Target, query.Take, cancellationToken);
+
+        var freshness = _freshness.Create(
+            "Rejestr audytu (12 miesięcy)",
+            result.Metadata,
+            TimeSpan.FromSeconds(_options.Freshness.AuditSeconds));
+
+        return WsEnvelope.Create(
+            request.Type,
+            request.RequestId,
+            new AuditQueryResponse(result.Items, result.TotalMatched, freshness));
+    }
+
+    private async Task<WsEnvelope> HandleActionPrepareAsync(
+        WsEnvelope request,
+        ClientIdentity identity,
+        CancellationToken cancellationToken)
+    {
+        var payload = request.ReadPayload<ActionPrepareRequest>();
+        if (payload is null)
+        {
+            throw new ProtocolException(ErrorCode.InvalidRequest, "Brak payloadu 'action.prepare'.");
+        }
+
+        var response = await _actions.PrepareAsync(identity, payload, cancellationToken);
+        return WsEnvelope.Create(request.Type, request.RequestId, response);
+    }
+
+    private async Task<WsEnvelope> HandleActionExecuteAsync(
+        WsEnvelope request,
+        ClientIdentity identity,
+        CancellationToken cancellationToken)
+    {
+        var payload = request.ReadPayload<ActionExecuteRequest>();
+        if (payload is null)
+        {
+            throw new ProtocolException(ErrorCode.InvalidRequest, "Brak payloadu 'action.execute'.");
+        }
+
+        var response = await _actions.ExecuteAsync(identity, payload, cancellationToken);
+        return WsEnvelope.Create(request.Type, request.RequestId, response);
     }
 }

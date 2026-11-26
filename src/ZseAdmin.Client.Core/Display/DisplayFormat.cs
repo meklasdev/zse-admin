@@ -34,6 +34,15 @@ public static class DisplayFormat
         _ => "niedostępne"
     };
 
+    /// <summary>Wynik operacji w rejestrze audytu (M4).</summary>
+    public static string AuditResult(string result) => result switch
+    {
+        "success" => "wykonano",
+        "failed" => "błąd źródła",
+        "denied" => "odmowa",
+        _ => result
+    };
+
     /// <summary>Odmiana rzeczownika po liczbie: 1 komputer, 2 komputery, 5 komputerów.</summary>
     public static string Count(int value, string one, string few, string many)
     {

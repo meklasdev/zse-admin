@@ -27,11 +27,12 @@ public partial class App : Application
             return;
         }
 
-        _connection = new WsClientConnection(endpoint, settings.Token);
+        _connection = new WsClientConnection(endpoint, settings.Token, settings.UseWindowsAuthentication);
         var api = new ZseAdminApiClient(_connection);
         var dispatcher = new DispatcherAdapter(Dispatcher);
+        var interaction = new WpfUserInteraction();
 
-        var viewModel = new MainViewModel(api, _connection, dispatcher);
+        var viewModel = new MainViewModel(api, _connection, dispatcher, interaction);
         var window = new MainWindow { DataContext = viewModel };
 
         MainWindow = window;

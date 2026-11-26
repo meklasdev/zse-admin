@@ -16,7 +16,7 @@ Serwer jest jedynym miejscem egzekwowania uprawnień. Klient może ukrywać akcj
 | `computers.control` | ✔ | ✘ | ✘ |
 | `audit.read` | ✔ | ✘ | ✘ |
 
-Definicje w kodzie: `src/ZseAdmin.Server/Security/Capability.cs` i `RoleCatalog.cs`. Testy pilnują, że Nauczyciel nie dostaje `users.write` ani `computers.control`.
+Definicje w kodzie: `src/ZseAdmin.Server/Security/Capability.cs` (stałe wskazują na `ZseAdmin.Contracts.Capabilities`) i `RoleCatalog.cs`. Testy pilnują, że Nauczyciel nie dostaje `users.write` ani `computers.control`.
 
 **Po co trzy role, a nie dwie:** nauczyciel potrzebuje historii logowań (kto siedział przy stacji), ale nie powinien widzieć całej kartoteki kont ani niczego zmieniać. `ReadOnly` to profil dla dyżurki/sekretariatu — widok bez danych o kontach.
 
@@ -24,11 +24,20 @@ Definicje w kodzie: `src/ZseAdmin.Server/Security/Capability.cs` i `RoleCatalog.
 
 | Etap | Mechanizm | Ryzyko |
 |---|---|---|
-| MVP (ten kod) | statyczne tokeny w `appsettings.json`, rola przypisana do tokenu | token = hasło bez wygasania, brak rozliczalności per osoba |
-| Produkcja (wymagane) | Windows/Kerberos (`Negotiate`) albo mapowanie grup AD → rola | wymaga konfiguracji IIS/HTTP.sys i zaufania domeny |
-| Docelowo | rola wyliczana z przynależności do grup AD (`ZSE-Admin-Administratorzy`, `ZSE-Admin-Nauczyciele`) | brak duplikacji kont |
+| Development (ten kod) | tokeny w `appsettings.Development.json`; baza `appsettings.json` ich nie zawiera | tylko praca lokalna |
+| Produkcja (zaimplementowane, etap M3) | Windows/Kerberos (`Negotiate`) na Kestrel albo IIS Windows Authentication + grupy AD → rola, świeże przy każdym połączeniu | wymaga SPN (Kestrel) albo roli IIS i zaufania domeny |
 
-**Bramka wdrożeniowa:** aplikacja z tokenami nie może trafić na produkcję. Tokeny służą wyłącznie do pracy lokalnej — token w `appsettings.json` jest widoczny dla każdego, kto ma dostęp do pliku.
+**Mapowanie grup → role (konfigurowalne w `Security:GroupMapping`):**
+
+| Grupa AD | Rola |
+|---|---|
+| `ZSE-Admin-Administratorzy` | Administrator |
+| `ZSE-Admin-Nauczyciele` | Nauczyciel |
+| `ZSE-Admin-Podglad` | ReadOnly |
+
+Użytkownik spoza wszystkich grup nie połączy się (401). Nieosiągalne AD przy sprawdzaniu grup → 503 (a nie 401 i nie „puste uprawnienia"). Konto usługi wymaga prawa czytania konstruowanych atrybutów (`tokenGroups`) — bez niego serwer wraca do `memberOf` (bez zagnieżdżenia) i loguje ostrzeżenie.
+
+**Bramka wdrożeniowa (fail-fast):** `SecurityConfigurationValidator` zatrzymuje serwer przy starcie, gdy na produkcji (`Environment=Production`) wykryje: tryb inny niż `ActiveDirectory`, niepustą sekcję `Security:Tokens`, `RequireSecureTransport=false`, `UseMockData=true` albo LDAP bez SSL. Tokeny służą wyłącznie do pracy lokalnej.
 
 Wymagania dodatkowe przy wdrożeniu:
 
@@ -38,11 +47,15 @@ Wymagania dodatkowe przy wdrożeniu:
   czytania konstruowanych atrybutów — bez niego serwer wraca do `memberOf` i traci zagnieżdżenie grup),
 - logowanie do serwera tylko z podsieci administracyjnej.
 
-## 4. Audyt operacji
+## 4. Audyt operacji — zaimplementowane (etapy M3/M4)
 
-Każda operacja zmieniająca stan (etap M3+) musi zapisać: kto, kiedy, na jakim obiekcie, jaka była wartość przed i po, z jakiego adresu IP, z jakim wynikiem. MVP nic nie zmienia, więc audyt dotyczy tylko zdarzeń bezpieczeństwa: nieudanego uwierzytelnienia, odmowy uprawnienia i zerwania sesji — te są już logowane.
+Każda operacja zmieniająca stan zapisuje: kto, kiedy, na jakim obiekcie, jaka była wartość przed i po, z jakiego adresu IP, z jakim wynikiem. Dotyczy to: restartu i blokady stacji, resetu hasła, dodania do grupy, a także odrzuconych prób połączenia `/ws` (`auth.connect` / `denied`).
 
-Minimalny rejestr docelowy: tabela `AuditEntry { Id, TimestampUtc, Actor, Role, Capability, Target, Before, After, Result, RemoteAddress }`, retencja 12 miesięcy.
+- Magazyn: `AuditEntry { Id, TimestampUtc, Actor, Role, Capability, Target, Before, After, Result, RemoteAddress }` w `data/audit.jsonl`, retencja 12 miesięcy, przycinanie przy starcie.
+- Wpis powstaje zawsze — także przy nieudanej operacji (`result: failed`) i przy odmowie przed upgrade'em.
+- **Hasła nigdy nie trafiają do audytu** (`Before`/`After` = `(hasło utajnione)` / `(hasło zmienione)`; komunikaty błędów są oczyszczane z hasła).
+- Błąd zapisu audytu wywraca operację — serwer nie melduje „sukcesu” bez rozliczalności.
+- Podgląd: zakładka „Audyt” w kliencie (Administrator, filtr po obiekcie) albo `audit.query` w `debug.html` (`target`, `capability`, `take` ≤ 200).
 
 ## 5. Dane osobowe (RODO)
 
@@ -70,11 +83,11 @@ Narzędzie przetwarza dane uczniów i pracowników: login, nazwę, przynależno�
 
 ## 7. Lista kontrolna przed produkcją
 
-- [ ] Uwierzytelnianie Windows/grupy AD zamiast tokenów.
-- [ ] `wss` z certyfikatem, firewall ograniczony do podsieci.
+- [x] Uwierzytelnianie Windows/grupy AD zamiast tokenów (M3 — do włączenia na produkcji: `Authentication:Mode=ActiveDirectory`; w dev zostają tokeny).
+- [x] `wss` z certyfikatem, firewall ograniczony do podsieci (`RequireSecureTransport=true` — kod odrzuca nie-`wss` już przed upgrade'em; firewall po stronie infrastruktury).
 - [ ] DPIA i klauzula informacyjna zatwierdzone.
-- [ ] Retencja wdrożona i przetestowana (dane faktycznie znikają).
+- [x] Retencja logowań wdrożona (30 dni, `FileLoginEventStore.PruneAsync` przy każdym cyklu) — do przetestowania na pilocie, że dane faktycznie znikają.
 - [ ] Konto usługi z minimalnymi prawami, zweryfikowane testem negatywnym.
-- [ ] Ograniczenie widoczności historii dla nauczycieli.
-- [ ] Audyt operacji zapisu (jeśli wdrożono M3).
-- [ ] Plan na awarię DC: aplikacja pokazuje „dane z godziny X”, nie puste ekrany.
+- [x] Ograniczenie widoczności historii dla nauczycieli (M3 — `teachers` w `classrooms.json`, odmowa `forbidden` poza zakresem).
+- [x] Audyt operacji zapisu (M4 — `audit.jsonl` + podgląd w kliencie i przez `audit.query`).
+- [ ] Plan na awarię DC: aplikacja pokazuje „dane z godziny X”, nie puste ekrany — mechanika jest (`freshness`), plan operacyjny do spisania.

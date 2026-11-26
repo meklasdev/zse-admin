@@ -41,6 +41,7 @@ Pracownia **nie jest** OU. To kontekst szkolny, mapowany na jedno lub wiele OU w
 | `occurredAtUtc` | DateTimeOffset | czas zdarzenia |
 | `type` | `logon` \| `logoff` \| `failedLogon` | rodzaj |
 | `source` | string | np. `Security log (4624)` — audytowalne pochodzenie |
+| `classroomId` | string? | pracownia denormalizowana przy zbiorze (z inwentarza); służy m.in. do ograniczenia widoczności nauczyciela (M3); `null` = bez pracowni (wtedy niewidoczne dla nauczyciela) |
 
 Model jest **zdarzeniowy**: brak wylogowania nie znaczy, że użytkownik nadal pracuje (stacja mogła zostać wyłączona). Lista zdarzeń nie jest listą aktywnych sesji.
 
@@ -55,6 +56,21 @@ Model jest **zdarzeniowy**: brak wylogowania nie znaczy, że użytkownik nadal p
 | `groups` | string[] | nazwy grup (docelowo `tokenGroups`, z rozwiązanymi nazwami) |
 | `ouDistinguishedName` | string? | jednostka organizacyjna konta |
 | `lastLogonAtUtc` | DateTimeOffset? | `lastLogonTimestamp` — **może być opóźniony do 14 dni** |
+
+### AuditEntry — wpis audytowy (M3/M4, lokalny `data/audit.jsonl`)
+
+| Pole | Typ | Znaczenie |
+|---|---|---|
+| `id` | Guid | identyfikator wpisu |
+| `timestampUtc` | DateTimeOffset | kiedy zarejestrowano |
+| `actor`, `role` | string | kto (sAMAccountName) i w jakiej roli |
+| `capability` | string | uprawnienie, którego użyto (np. `computers.control`) |
+| `target` | string | obiekt: komputer, konto, albo `sam → grupa` |
+| `before`, `after` | string? | wartość przed i po (bez sekretów — hasło jako `(hasło utajnione)`) |
+| `result` | string | `accepted` / `ok` / `nochange` / `failed` / `denied` |
+| `remoteAddress` | string? | adres zdalny sesji |
+
+Retencja: 12 miesięcy (`ZseAdmin:Audit:RetentionMonths`). Podgląd: `audit.query` (tylko `audit.read`).
 
 ### DataFreshnessDto — zaufanie do danych
 

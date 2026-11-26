@@ -8,8 +8,17 @@ public sealed class AppSettings
 {
     public string ServerUrl { get; set; } = "ws://localhost:5080/ws";
 
-    /// <summary>Token MVP. Docelowo: Windows/Kerberos zamiast tokenu — docs/uprawnienia-i-dane-osobowe.md.</summary>
+    /// <summary>
+    /// Token deweloperski (tryb DevelopmentTokens na serwerze). Na produkcji token jest zabroniony —
+    /// ustaw <see cref="UseWindowsAuthentication"/> = true zamiast tokenu.
+    /// </summary>
     public string? Token { get; set; } = "dev-admin-token";
+
+    /// <summary>
+    /// M3: uwierzytelnianie Windows/Kerberos (Negotiate) — klient używa poświadczeń zalogowanego
+    /// użytkownika. Ustaw true dla produkcji (wss + Negotiate na serwerze).
+    /// </summary>
+    public bool UseWindowsAuthentication { get; set; }
 
     public static AppSettings Load()
     {

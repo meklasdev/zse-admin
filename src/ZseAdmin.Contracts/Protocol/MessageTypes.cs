@@ -14,4 +14,10 @@ public static class MessageTypes
     public const string ComputersList = "computers.list";
     public const string LoginsQuery = "logins.query";
     public const string UsersGet = "users.get";
+
+    // Akcje i audyt (etapy M3/M4)
+    public const string ComputersAction = "computers.action";
+    public const string UsersResetPassword = "users.resetPassword";
+    public const string UsersAddToGroup = "users.addToGroup";
+    public const string AuditQuery = "audit.query";
 }

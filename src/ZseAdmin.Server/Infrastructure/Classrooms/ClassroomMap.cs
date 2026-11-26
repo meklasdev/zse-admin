@@ -14,6 +14,12 @@ public sealed class ClassroomDefinition
 
     /// <summary>Jednostki organizacyjne (distinguishedName) przypisane do tej pracowni.</summary>
     public List<string> Ous { get; set; } = new();
+
+    /// <summary>
+    /// Konta nauczycieli (sAMAccountName) prowadzących zajęcia w tej pracowni.
+    /// Nauczyciel widzi historię logowań wyłącznie ze swoich pracowni (M3).
+    /// </summary>
+    public List<string> Teachers { get; set; } = new();
 }
 
 /// <summary>Przypisanie komputera do pracowni wynikające z mapy OU.</summary>
@@ -95,7 +101,8 @@ public sealed class ClassroomMap
             {
                 Id = id,
                 Name = name,
-                Ous = new List<string>()
+                Ous = new List<string>(),
+                Teachers = ParseTeachers(id, definition.Teachers, errors)
             };
 
             var localOus = new HashSet<string>(StringComparer.Ordinal);
@@ -181,6 +188,47 @@ public sealed class ClassroomMap
         return best is null ? null : new ClassroomAssignment(best.Id, best.Name);
     }
 
+    /// <summary>
+    /// Pracownie przypisane nauczycielowi (sAMAccountName, bez rozróżniania wielkości liter).
+    /// Pusta lista = nauczyciel bez przypisania — nie widzi historii logowań.
+    /// </summary>
+    public IReadOnlyList<string> ClassroomIdsForTeacher(string samAccountName)
+    {
+        if (string.IsNullOrWhiteSpace(samAccountName))
+        {
+            return Array.Empty<string>();
+        }
+
+        var wanted = samAccountName.Trim();
+        return _classrooms
+            .Where(c => c.Teachers.Any(t => string.Equals(t, wanted, StringComparison.OrdinalIgnoreCase)))
+            .Select(c => c.Id)
+            .ToList();
+    }
+
+    private static List<string> ParseTeachers(string classroomId, List<string>? teachers, List<string> errors)
+    {
+        var parsed = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var raw in teachers ?? new List<string>())
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                errors.Add($"Pracownia '{classroomId}': pusty wpis nauczyciela na liście 'teachers'.");
+                continue;
+            }
+
+            var trimmed = raw.Trim();
+            if (seen.Add(trimmed))
+            {
+                parsed.Add(trimmed);
+            }
+        }
+
+        return parsed;
+    }
+
     /// <summary>Pierwsze skonfigurowane OU pracowni (do prezentacji); <c>null</c> = pracownia bez OU.</summary>
     public string? PrimaryOu(string classroomId) =>
         _classrooms
@@ -226,19 +274,22 @@ public sealed class ClassroomMap
         {
             Id = "prac-101",
             Name = "Pracownia 101",
-            Ous = new List<string> { "OU=PRAC101,OU=Pracownie,DC=zse,DC=local" }
+            Ous = new List<string> { "OU=PRAC101,OU=Pracownie,DC=zse,DC=local" },
+            Teachers = new List<string> { "k.mazur" }
         },
         new()
         {
             Id = "prac-102",
             Name = "Pracownia 102",
-            Ous = new List<string> { "OU=PRAC102,OU=Pracownie,DC=zse,DC=local" }
+            Ous = new List<string> { "OU=PRAC102,OU=Pracownie,DC=zse,DC=local" },
+            Teachers = new List<string> { "k.mazur" }
         },
         new()
         {
             Id = "prac-205",
             Name = "Pracownia 205",
-            Ous = new List<string> { "OU=PRAC205,OU=Pracownie,DC=zse,DC=local" }
+            Ous = new List<string> { "OU=PRAC205,OU=Pracownie,DC=zse,DC=local" },
+            Teachers = new List<string> { "t.lewandowski", "e.dabrowska" }
         }
     };
 }

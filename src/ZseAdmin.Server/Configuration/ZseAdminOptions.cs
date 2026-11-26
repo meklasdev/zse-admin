@@ -31,6 +31,14 @@ public sealed class ZseAdminOptions
     public StatusProbeOptions StatusProbe { get; set; } = new();
 
     public FreshnessOptions Freshness { get; set; } = new();
+
+    public DataOptions Data { get; set; } = new();
+
+    public LoginsOptions Logins { get; set; } = new();
+
+    public ActionsOptions Actions { get; set; } = new();
+
+    public AuditOptions Audit { get; set; } = new();
 }
 
 /// <summary>Konfiguracja pliku z pracowniami (ADR-0005).</summary>
@@ -102,4 +110,45 @@ public sealed class FreshnessOptions
     public int LoginsSeconds { get; set; } = 900;
 
     public int DirectorySeconds { get; set; } = 3600;
+}
+
+/// <summary>Katalog danych serwera (magazyny lokalne: zdarzenia logowań, audyt).</summary>
+public sealed class DataOptions
+{
+    /// <summary>Ścieżka względna do katalogu roboczego albo bezwzględna. Domyślnie <c>data</c> przy pliku exe.</summary>
+    public string Directory { get; set; } = "data";
+}
+
+/// <summary>Zbieranie historii logowań (etap M2).</summary>
+public sealed class LoginsOptions
+{
+    /// <summary>Interwał cyklu zbierania (sekundy). Minimum 15; zdarzenie powinno być widoczne w ≤ 2 min.</summary>
+    public int PollSeconds { get; set; } = 60;
+
+    /// <summary>Retencja zdarzeń w magazynie (dni). Po tym czasie są usuwane automatycznie.</summary>
+    public int RetentionDays { get; set; } = 30;
+
+    /// <summary>Budżet odczytu wszystkich stacji w jednym cyklu (sekundy). Po jego przekroczeniu stacje bez odpowiedzi liczą się jako niedostępne.</summary>
+    public int StationAccessBudgetSeconds { get; set; } = 30;
+}
+
+/// <summary>Akcje na stacjach (etap M4).</summary>
+public sealed class ActionsOptions
+{
+    /// <summary>
+    /// Ścieżka do PsExec (np. <c>C:\\Tools\\PsExec64.exe</c>) — wymagana wyłącznie dla blokady
+    /// ekranu (brak wbudowanej metody zdalnej blokady w Windows). Bez niej akcja „lock”
+    /// kończy się jawnym błędem, a nie udawanym sukcesem.
+    /// </summary>
+    public string? PsExecPath { get; set; }
+
+    /// <summary>Limit czasu na zakończenie narzędzia systemowego (shutdown.exe / PsExec).</summary>
+    public int ShutdownTimeoutSeconds { get; set; } = 15;
+}
+
+/// <summary>Rejestr audytowy (etapy M3/M4).</summary>
+public sealed class AuditOptions
+{
+    /// <summary>Retencja wpisów audytowych (miesiące).</summary>
+    public int RetentionMonths { get; set; } = 12;
 }

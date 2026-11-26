@@ -1,15 +1,19 @@
 namespace ZseAdmin.Server.Security;
 
-/// <summary>Uprawnienia ziarniste. Odczyt, modyfikacja AD i akcje na stacjach są rozdzielone.</summary>
+/// <summary>
+/// Uprawnienia ziarniste. Odczyt, modyfikacja AD i akcje na stacjach są rozdzielone.
+/// Wartości są stałymi protokołu — źródłem prawdy jest <see cref="ZseAdmin.Contracts.Capabilities"/>;
+/// klasa zostaje dla zgodności odwołań w serwerze i testach.
+/// </summary>
 public static class Capability
 {
-    public const string ClassroomsRead = "classrooms.read";
-    public const string ComputersRead = "computers.read";
-    public const string ComputersControl = "computers.control";
-    public const string LoginsRead = "logins.read";
-    public const string UsersRead = "users.read";
-    public const string UsersWrite = "users.write";
-    public const string AuditRead = "audit.read";
+    public const string ClassroomsRead = ZseAdmin.Contracts.Capabilities.ClassroomsRead;
+    public const string ComputersRead = ZseAdmin.Contracts.Capabilities.ComputersRead;
+    public const string ComputersControl = ZseAdmin.Contracts.Capabilities.ComputersControl;
+    public const string LoginsRead = ZseAdmin.Contracts.Capabilities.LoginsRead;
+    public const string UsersRead = ZseAdmin.Contracts.Capabilities.UsersRead;
+    public const string UsersWrite = ZseAdmin.Contracts.Capabilities.UsersWrite;
+    public const string AuditRead = ZseAdmin.Contracts.Capabilities.AuditRead;
 }
 
 public static class Roles

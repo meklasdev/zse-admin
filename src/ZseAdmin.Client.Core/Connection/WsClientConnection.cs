@@ -16,6 +16,7 @@ public sealed class WsClientConnection : IAsyncDisposable
 
     private readonly Uri _endpoint;
     private readonly string? _token;
+    private readonly bool _useWindowsAuthentication;
     private readonly SemaphoreSlim _sendLock = new(1, 1);
     private readonly ConcurrentDictionary<string, TaskCompletionSource<WsEnvelope>> _pending = new(StringComparer.Ordinal);
 
@@ -24,10 +25,16 @@ public sealed class WsClientConnection : IAsyncDisposable
     private Task? _loopTask;
     private ConnectionState _state = ConnectionState.Disconnected;
 
-    public WsClientConnection(Uri endpoint, string? token = null)
+    /// <summary>
+    /// <paramref name="useWindowsAuthentication"/> (M3): przy połączeniu z produkcją
+    /// (Negotiate na serwerze) klient podaje poświadczenia systemu Windows —
+    /// <c>DefaultNetworkCredentials</c>. Bez tokenu i bez pytania użytkownika.
+    /// </summary>
+    public WsClientConnection(Uri endpoint, string? token = null, bool useWindowsAuthentication = false)
     {
         _endpoint = endpoint;
         _token = token;
+        _useWindowsAuthentication = useWindowsAuthentication;
     }
 
     public ConnectionState State => _state;
@@ -145,6 +152,11 @@ public sealed class WsClientConnection : IAsyncDisposable
 
                 using var socket = new ClientWebSocket();
                 socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(20);
+
+                if (_useWindowsAuthentication)
+                {
+                    socket.Options.Credentials = System.Net.CredentialCache.DefaultNetworkCredentials;
+                }
 
                 await socket.ConnectAsync(BuildUri(), cancellationToken).ConfigureAwait(false);
 
@@ -270,7 +282,7 @@ public sealed class WsClientConnection : IAsyncDisposable
 
     private Uri BuildUri()
     {
-        if (string.IsNullOrWhiteSpace(_token))
+        if (_useWindowsAuthentication || string.IsNullOrWhiteSpace(_token))
         {
             return _endpoint;
         }

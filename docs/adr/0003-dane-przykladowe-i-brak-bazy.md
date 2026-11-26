@@ -21,6 +21,15 @@ Specyfikacja nie rozstrzyga, czy aplikacja przechowuje własne dane, czy jest wy
 | PostgreSQL/SQL Server | nadmiar dla narzędzia czytającego AD; dodatkowa infrastruktura do utrzymania w szkole |
 | Trwały cache w pamięci procesu | tracone dane po awarii; akceptowalne tylko do pilotażu |
 
+## Aktualizacja (2026-11-26, etapy M2–M4)
+
+Zasada „bez bazy danych” zostaje — z dwoma wyjątkami w postaci **plików JSONL** w `data/`, które nie zmieniają ADR-u (nadal brak schematu i migracji):
+
+1. **Historia logowań (M2)** trafia do `data/logins.jsonl` (append + atomowa podmiana przy retencji 30 dni). To lokalny bufor na zdarzenia ze stacji, nie baza — dane można odtworzyć ze źródeł w zakresie retencji.
+2. **Audyt (M3/M4)** trafia do `data/audit.jsonl` (retencja 12 miesięcy, przycinanie przy starcie).
+
+Implementacje `Mock*` przestały być jedyne: obok nich działają adaptery LDAP (M1) oraz kolekcjoner EventLog (M2).
+
 ## Konsekwencje
 
 **Pozytywne:** szybki start, brak migracji, brak danych osobowych w nowym miejscu, testy bez bazy, łatwa podmiana źródła.

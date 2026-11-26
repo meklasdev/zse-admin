@@ -6,7 +6,7 @@
     <UseWPF>true</UseWPF>
     <RootNamespace>ZseAdmin.Client</RootNamespace>
     <AssemblyName>ZseAdmin.Client</AssemblyName>
-    <Version>0.1.0</Version>
+    <Version>0.4.0</Version>
     <!-- Pozwala na restore/build poza Windows; uruchomienie i tak wymaga pulpitu Windows. -->
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>

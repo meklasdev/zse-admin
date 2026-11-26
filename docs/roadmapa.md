@@ -44,39 +44,70 @@ wtedy `unavailable` z powodem, chyba że włączono `UseMockDataForLogins`.
 
 **Ryzyka:** uprawnienia konta usługi, opóźnienie `lastLogonTimestamp`, rozmiar odpowiedzi LDAP.
 
-## M2 — Historia logowań
+## M2 — Historia logowań — zaimplementowane (weryfikacja na pilocie)
 
-**Zakres:** zbieranie zdarzeń 4624/4634/4625 (WEF lub odczyt zdalny), bufor lokalny, filtry komputer/użytkownik/czas, kompletność i zakres, retencja 30 dni.
+**Zakres:** zbieranie zdarzeń 4624/4634/4625 (zdalny odczyt dziennika zabezpieczeń), bufor lokalny (JSONL), filtry komputer/użytkownik/pracownia/czas, kompletność i zakres, retencja 30 dni.
+
+| Element | Gdzie |
+|---|---|
+| Zdalny odczyt dzienników (4624/4634/4625) per stacja, budżet czasu | `Infrastructure/Logins/WindowsSecurityEventSource.cs`, `WindowsSecurityEventReader.cs` |
+| Mapowanie zdarzeń + pracownia z inwentarza | `SecurityEventMapper.cs` |
+| Cykliczny zbiór + czyszczenie retencji | `LoginEventCollector.cs`, `LoginEventCollectorService.cs` (pierwszy cykl od razu, potem co `Logins:PollSeconds`) |
+| Magazyn zdarzeń (append + retencja po znacznikach) | `FileLoginEventStore.cs` (`data/logins.jsonl`, 30 dni, deduplikacja po Id) |
+| Odpowiedź z kompletnością i notą „N z M stacji bez dostępu” | `LoginLog.cs` |
+| Makieta na dev (14 dni, partial) | `MockLoginLog.cs` (`UseMockDataForLogins=true`) |
 
 **Kryteria akceptacji:**
 
-- Gdy uczeń zaloguje się na stacji, to zdarzenie jest widoczne w aplikacji w ciągu 2 minut.
-- Gdy 2 z 6 stacji nie mają dostępu do dziennika, to odpowiedź ma `completeness = partial` i notę z liczbą stacji.
-- Gdy pytam o zakres poza retencją, to widzę jawny komunikat o zakresie, nie pustą listę bez wyjaśnienia.
-- Gdy minie 30 dni, to zdarzenia są usuwane (test na podstawie znaczników czasu).
+- Gdy uczeń zaloguje się na stacji, to zdarzenie jest widoczne w aplikacji w ciągu 2 minut. — cykl co 60 s + pierwsze sprawdzenie po starcie; do potwierdzenia na pilocie (Windows, *Event Log Readers*).
+- Gdy 2 z 6 stacji nie mają dostępu do dziennika, to odpowiedź ma `completeness = partial` i notę z liczbą stacji. ✔ `LoginLog` składa notę z `LoginCollectionState.Snapshot` (Stacje bez dostępu: N z M); brak dostępu nigdy nie wygląda jak „brak logowań”.
+- Gdy pytam o zakres poza retencją, to widzę jawny komunikat o zakresie, nie pustą listę bez wyjaśnienia. ✔ `MessageRouter` (nota o początku retencji) + test `Zakres_przed_retencja_jest_jawnie_oznaczony`.
+- Gdy minie 30 dni, to zdarzenia są usuwane (test na podstawie znaczników czasu). ✔ `FileLoginEventStore.PruneAsync` wywoływany przy każdym cyklu; retencja konfigurowalna (`Logins:RetentionDays`).
 
 **Ryzyka:** przewijanie dzienników, obciążenie stacji, RODO (podstawa prawna, DPIA).
 
-## M3 — Bezpieczeństwo produkcyjne
+## M3 — Bezpieczeństwo produkcyjne — zaimplementowane (weryfikacja na pilocie)
 
-**Zakres:** uwierzytelnianie Windows/Kerberos lub mapowanie grup AD, `wss`, ograniczenie widoczności historii dla nauczycieli, audyt operacji, minimalne prawa konta usługi.
+**Zakres:** uwierzytelnianie Windows/Kerberos + mapowanie grup AD na role, `wss`, ograniczenie widoczności historii dla nauczycieli, audyt operacji, minimalne prawa konta usługi, bramka konfiguracji produkcyjnej.
+
+| Element | Gdzie |
+|---|---|
+| Negotiate (Kerberos/NTLM) na Kestrel / za IIS | `Program.cs` (`AddNegotiate()`), `Security/ActiveDirectoryAuthenticator.cs` |
+| Mapowanie grup AD → role (świeże przy każdym połączeniu) | `ActiveDirectoryAuthenticator` + `Security:GroupMapping` (`ZSE-Admin-Administratorzy` / `ZSE-Admin-Nauczyciele` / `ZSE-Admin-Podglad`) |
+| Odmowa bez grupy (401), AD nieosiągalne (503) | `WsEndpoint.cs` (+ audyt `auth.connect`/`denied`) |
+| `wss` wymagane — odmowa przed upgrade'em (400) | `WsEndpoint.cs` + `Security/SecureTransport.cs` (`RequireSecureTransport=true` na prod) |
+| Bramka produkcyjna: tokeny/brak wss/mock/bez-LDAPS → serwer nie startuje | `Security/SecurityConfigurationValidator.cs` (kod wyjścia 1) |
+| Widoczność historii nauczyciela ograniczona do jego pracowni (`teachers` w `classrooms.json`) | `MessageRouter` (`ClassroomIdsForTeacher`), `Forbidden` przy cudzej pracowni/stacji |
+| Audyt: zapis + retencja 12 mies. + podgląd (`audit.query`) | `Infrastructure/Audit/FileAuditLog.cs` (`data/audit.jsonl`) |
 
 **Kryteria akceptacji:**
 
-- Gdy użytkownik nie należy do grupy `ZSE-Admin-Nauczyciele`, to nie może się połączyć.
-- Gdy nauczyciel prosi o logowania z pracowni, w której nie ma zajęć, to dostaje `forbidden`.
-- Gdy zmieniono dane (etap M4), to w audycie jest wpis z aktorem, celem i wartością przed/po.
-- Tokeny z `appsettings.json` są wyłączone, a połączenie bez `wss` odrzucone.
+- Gdy użytkownik nie należy do grupy `ZSE-Admin-Nauczyciele` (ani `Administratorzy`/`Podglad`), to nie może się połączyć. ✔ 401 z `WsEndpoint`, zanim powstanie sesja; testy `SecurityConfigurationValidatorTests` pilnują bramki.
+- Gdy nauczyciel prosi o logowania z pracowni, w której nie ma zajęć, to dostaje `forbidden`. ✔ `MessageRouter` + testy `Nauczyciel_nie_moze_pytac_o_pracownie_spoza_swojego_przypisania` i `Nauczyciel_bez_przypisanej_pracowni_nie_widzi_historii_logowan`.
+- Gdy zmieniono dane (etap M4), to w audycie jest wpis z aktorem, celem i wartością przed/po. ✔ `RecordAuditAsync` (M4) + `audit.query`; testy `Administrator_restartuje_stacje_i_tworzy_wpis_audytu`.
+- Tokeny z `appsettings.json` są wyłączone, a połączenie bez `wss` odrzucone. ✔ baza nie ma tokenów (dev-tokeny w `appsettings.Development.json`), `RequireSecureTransport` + `SecurityConfigurationValidator` (test: `Brak_wss_na_produkcji_blokuje_start`).
 
-## M4 — Akcje na stacjach i zapis do AD
+**Uwaga:** uwierzytelnianie Negotiate na Kestrel wymaga SPN (patrz `docs/uruchomienie.md` §9) — za IIS z włączonym Windows Authentication SPN nie jest potrzebny.
+
+## M4 — Akcje na stacjach i zapis do AD — zaimplementowane (weryfikacja na pilocie)
 
 **Zakres:** restart/blokada stacji, reset hasła, dodanie do grupy — każde z potwierdzeniem i audytem.
 
+| Element | Gdzie |
+|---|---|
+| Restart: `shutdown.exe /r /m \\STACJA /f /t 0` | `Infrastructure/Actions/WindowsComputerActionExecutor.cs` |
+| Blokada ekranu: PsExec (`Actions:PsExecPath`); bez konfiguracji — jawny błąd, nie udawany sukces | ten sam plik |
+| Reset hasła: LDAP `unicodePwd` (wymaga LDAPS), hasło nigdy nie trafia do audytu | `Infrastructure/Actions/LdapAdAccountWriter.cs` |
+| Dodanie do grupy: LDAP `member`, operacja idempotentna (`changed=false`) | ten sam plik |
+| Wymuszenie `confirm=true` + uprawnienie + audyt (zawsze, także przy błędzie) | `MessageRouter` (`computers.action`, `users.resetPassword`, `users.addToGroup`) |
+| Ukrycie akcji w UI bez uprawnienia (`computers.control`/`users.write`) | `MainViewModel` + `MainWindow.xaml` (wpis `welcome.capabilities`) |
+| Potwierdzenie w UI przed każdą akcją | `IUserInteraction` + dialogi WPF (`WpfUserInteraction`, `ResetPasswordWindow`, `PromptWindow`) |
+
 **Kryteria akceptacji:**
 
-- Gdy rola nie ma `computers.control`, to akcja jest niewidoczna w UI i odrzucona serwerowo.
-- Gdy akcja się nie powiedzie, to UI pokazuje błąd źródła, a nie „sukces”.
-- Każda zmiana ma wpis audytowy i jest widoczna w szczegółach obiektu.
+- Gdy rola nie ma `computers.control`, to akcja jest niewidoczna w UI i odrzucona serwerowo. ✔ `CanControlComputers` z `welcome.capabilities` + `CapabilityGuard.Require` → `forbidden` (test: `Readonly_nie_moze_wykonac_akcji_na_stacji`).
+- Gdy akcja się nie powiedzie, to UI pokazuje błąd źródła, a nie „sukces”. ✔ serwer zwraca `upstreamUnavailable` z komunikatem narzędzia/AD (także przy błędzie audytu — operacja nie jest meldowana jako udana); klient pokazuje `StatusMessage` z błędem zamiast „gotowe”.
+- Każda zmiana ma wpis audytowy i jest widoczna w szczegółach obiektu. ✔ audyt zawsze (sukces i porażka); zakładka „Audyt” w kliencie (Administrator) i `audit.query` w `debug.html`; testy `…_zapisuje_wpis_audytu…`.
 
 ## M5 — Wdrożenie
 

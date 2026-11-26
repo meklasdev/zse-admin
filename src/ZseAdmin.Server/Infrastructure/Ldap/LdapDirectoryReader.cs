@@ -10,7 +10,7 @@ namespace ZseAdmin.Server.Infrastructure.Ldap;
 /// <c>System.DirectoryServices.Protocols</c>. Wyszukiwania są stronicowane, a odpowiedzi
 /// mapowane na <see cref="LdapEntry"/> — dalsza logika nie zna LDAP-a.
 /// </summary>
-public sealed class LdapDirectoryReader : ILdapDirectoryReader, IDisposable
+public sealed class LdapDirectoryReader : ILdapDirectoryReader, ILdapWriter, IDisposable
 {
     private const int ProtocolVersion = 3;
 
@@ -103,6 +103,52 @@ public sealed class LdapDirectoryReader : ILdapDirectoryReader, IDisposable
         catch (LdapException ex)
         {
             throw new SourceUnavailableException("Active Directory", $"Błąd LDAP: {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>
+    /// Zmiana atrybutu (M4): <c>unicodePwd</c> wymaga kanału LDAPS, <c>member</c> — uprawnień
+    /// do zapisu grupy. Błędy LDAP są rzucane jako <see cref="SourceUnavailableException"/>.
+    /// </summary>
+    public void Modify(
+        string distinguishedName,
+        LdapModification modification,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var request = new ModifyRequest(distinguishedName);
+        var directoryModification = new DirectoryAttributeModification
+        {
+            Name = modification.Attribute
+        };
+
+        directoryModification.Operation = modification.Operation switch
+        {
+            LdapModificationOperation.Add => DirectoryAttributeOperation.Add,
+            LdapModificationOperation.Replace => DirectoryAttributeOperation.Replace,
+            LdapModificationOperation.Delete => DirectoryAttributeOperation.Delete,
+            _ => throw new ArgumentOutOfRangeException(nameof(modification), "Nieznana operacja modyfikacji LDAP.")
+        };
+
+        foreach (var value in modification.Values)
+        {
+            directoryModification.Add(value);
+        }
+
+        request.Modifications.Add(directoryModification);
+
+        try
+        {
+            _connection.Value.SendRequest(request);
+        }
+        catch (LdapException ex)
+        {
+            throw new SourceUnavailableException("Active Directory", $"Błąd LDAP (modify): {ex.Message}", ex);
+        }
+        catch (DirectoryOperationException ex)
+        {
+            throw new SourceUnavailableException("Active Directory", $"Błąd operacji LDAP (modify): {ex.Message}", ex);
         }
     }
 

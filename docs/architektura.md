@@ -13,23 +13,29 @@
 ┌─────────────────────────────┐            ┌──────────────────────────────────────────┐
 │ ZseAdmin.Client (WPF)       │            │ ZseAdmin.Server (ASP.NET Core, net8.0)   │
 │                             │            │                                          │
-│ MainWindow.xaml             │  WebSocket │  /ws  → WsConnection → MessageRouter     │
-│  ├─ pracownie (lista)       │◄──────────►│           │                              │
-│  ├─ komputery (grid)        │   JSON     │           ├─ IClassroomDirectory          │
-│  └─ logowania (lista)       │            │           ├─ IComputerDirectory           │
-│                             │            │           ├─ ILoginLog                    │
-│ Core:                       │            │           ├─ IAdDirectory                  │
-│  WsClientConnection         │            │           └─ FreshnessService              │
-│  ZseAdminApiClient          │            │                                          │
-│  MainViewModel              │            │  StatusMonitorService (BackgroundService)│
-└─────────────────────────────┘            │  ConnectionRegistry (broadcast)          │
-                                           │  TokenAuthenticator → ClientIdentity     │
+│ MainWindow.xaml             │  WebSocket │  /ws  → WsEndpoint → WsConnection →      │
+│  ├─ pracownie (lista)       │◄──────────►│        MessageRouter                     │
+│  ├─ komputery (grid+akcje)  │   wss/JSON │        │                               │
+│  ├─ logowania (lista)       │   +Negotiate│        ├─ IClassroomDirectory           │
+│  ├─ konto AD (szczegóły)    │            │        ├─ IComputerDirectory           │
+│  └─ audyt (zakładka)        │            │        ├─ ILoginLog                    │
+│                             │            │        ├─ IAdDirectory                  │
+│ Core:                       │            │        ├─ FreshnessService              │
+│  WsClientConnection         │            │        ├─ IAuditLog (JSONL)             │
+│  ZseAdminApiClient          │            │        ├─ IComputerActionExecutor       │
+│  MainViewModel +            │            │        └─ IAdAccountWriter              │
+│  IUserInteraction           │            │                                          │
+└─────────────────────────────┘            │  StatusMonitorService (BackgroundService)│
+                                           │  LoginEventCollectorService (M2)        │
+                                           │  ConnectionRegistry (broadcast)          │
+                                           │  ActiveDirectoryAuthenticator |           │
+                                           │  TokenAuthenticator (dev) → ClientIdentity│
                                            └──────────────────────────────────────────┘
                                                      │            │            │
                                             ┌────────┘     ┌──────┘     ┌──────┘
                                             ▼              ▼            ▼
                                      Active Directory   Stacje (ICMP/  Dzienniki
-                                     (LDAP/Win32 API)    SMB/WMI)      stacji
+                                     (LDAP/LDAPS)        shutdown/PsExec) zabezpieczeń
 ```
 
 | Projekt | Rola | Zależności |
@@ -44,8 +50,8 @@ Rozdzielenie `Client.Core` od `Client` jest celowe: logika jest testowalna bez W
 
 ## 3. Przepływ żądania
 
-1. Klient łączy się z `/ws` z tokenem (nagłówek `X-ZseAdmin-Token` lub `?access_token=`).
-2. Serwer uwierzytelnia, tworzy sesję i wysyła `welcome` z rolą i listą uprawnień.
+1. Klient łączy się z `/ws` — w produkcji przez `wss://` z Negotiate (Windows/Kerberos); w dev tokenem (nagłówek `X-ZseAdmin-Token` lub `?access_token=`).
+2. Serwer sprawdza transport (odmowa nie-`wss` przed upgrade'em), uwierzytelnia (AD → rola z grup `ZSE-Admin-*`), tworzy sesję i wysyła `welcome` z rolą i listą uprawnień.
 3. Klient wysyła kopertę `{ type, requestId, payload }`.
 4. `MessageRouter` sprawdza uprawnienie (`CapabilityGuard`), pyta odpowiednie źródło i dokłada metadane świeżości.
 5. Serwer odpowiada tą samą wartością `type` i tym samym `requestId`. Błąd → `type: "error"` + `ErrorDto`.
@@ -59,18 +65,18 @@ Rozdzielenie `Client.Core` od `Client` jest celowe: logika jest testowalna bez W
 
 ## 5. Adaptery danych
 
-Stan na dziś: **M1 zaimplementowane** (ADR-0005), M2 w planie.
+Stan na dziś: **M1–M4 zaimplementowane** (ADR-0005); weryfikacja na pilocie (Windows + AD).
 
 | Interfejs | Implementacja M1 | Uwagi |
 |---|---|---|
 | `IClassroomDirectory` | `AdClassroomDirectory` (konfiguracja + liczniki z AD) | pracownia istnieje także wtedy, gdy OU jest puste |
 | `IComputerDirectory` | `AdComputerDirectory` (AD + `IComputerStatusProbe`) | paginacja LDAP, limit `MaxComputers`, cache TTL, „poza pracownią” bez filtra |
 | `IComputerDirectory.RefreshStatusesAsync` | ICMP (`StatusProbe`) | równoległość ograniczona; brak odpowiedzi = `offline` z czasem, brak adresu = `unknown` |
-| `ILoginLog` | `MockLoginLog` (dev) / `UnavailableLoginLog` (produkcja do M2) | pusta lista nie udaje braku zdarzeń |
+| `ILoginLog` | `MockLoginLog` (dev) / `LoginLog` + `FileLoginEventStore` + `LoginEventCollectorService` (prod, M2) | pusta lista nie udaje braku zdarzeń — `completeness=partial/unavailable` + nota ze stacjami bez dostępu |
 | `IAdDirectory` | `AdDirectory` (LDAP `tokenGroups`) | `lastLogonTimestamp` bywa opóźniony do 14 dni |
 
 Porty pomocnicze: `ILdapDirectoryReader` (jedyna warstwa znająca LDAP), `IAdInventoryReader`
-(wykrywanie komputerów/kont), `IComputerStatusProbe` (sieć). Dzięki temu całą interpretację
+(wykrywanie komputerów/kont), `IComputerStatusProbe` (sieć), `IAuditLog` (`FileAuditLog`), `IComputerActionExecutor` / `IAdAccountWriter` (M4), `IAdGroupMembershipResolver` (M3). Dzięki temu całą interpretację
 AD można testować bez kontrolera domeny.
 
 ### 5.1 Wybór źródła danych

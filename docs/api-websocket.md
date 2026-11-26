@@ -4,10 +4,29 @@ Wersja protokołu: **1** (stała `ProtocolJson.ProtocolVersion`, wysyłana w `we
 
 ## 1. Transport i uwierzytelnianie
 
-- Endpoint: `/ws` na serwerze ZSE-Admin (`ws://host:5080/ws`, w produkcji `wss://`).
+- Endpoint: `/ws` na serwerze ZSE-Admin (`ws://host:5080/ws`).
+- **Produkcja: wyłącznie `wss://`.** Przy `Security:RequireSecureTransport=true` serwer odrzuca
+  niezaszyfrowane `ws://` odpowiedzią HTTP 400, zanim powstanie jakakolwiek sesja.
 - Podprotokół: brak (czysty tekst). Wiadomości binarne są ignorowane.
 - Limit wiadomości: 1 MiB; przekroczenie zamyka sesję.
 - Keep-alive: ping WebSocket co 20 s po obu stronach.
+
+### 1.1 Produkcja (M3): Windows/Kerberos + grupy AD
+
+Konfiguracja: `Security:Authentication:Mode = ActiveDirectory`.
+
+1. Żądanie `/ws` przechodzi przez Negotiate (IIS z uwierzytelnianiem Windows albo handler
+   `Microsoft.AspNetCore.Authentication.Negotiate` na Kestrel). Brak tożsamości → HTTP 401.
+2. Serwer mapuje grupy AD użytkownika na rolę — świeżo przy każdym połączeniu:
+   `ZSE-Admin-Administratorzy` → `Administrator`, `ZSE-Admin-Nauczyciele` → `Teacher`,
+   `ZSE-Admin-Podglad` → `ReadOnly` (nazwy konfigurowalne w `Security:GroupMapping`).
+3. Użytkownik spoza wszystkich grup → HTTP 401, sesja nie powstaje.
+4. Nieosiągalne AD (grup się nie da odczytać) → HTTP 503, a nie 401 — klient powinien ponowić później.
+5. Próby odrzucone (bez tożsamości) trafiają do audytu jako `auth.connect` / `denied`.
+
+### 1.2 Development: tokeny
+
+Konfiguracja: `Security:Authentication:Mode = DevelopmentTokens` (domyślnie w `appsettings.Development.json`).
 
 Token przekazywany jest **przed** upgrade'em:
 
@@ -16,9 +35,9 @@ Token przekazywany jest **przed** upgrade'em:
 | Nagłówek | `X-ZseAdmin-Token: <token>` | klient desktopowy |
 | Parametr | `?access_token=<token>` | przeglądarka, konsola debug |
 
-Brak lub błędny token → HTTP 401, sesja nie powstaje. Po upgrade'ie serwer nie przyjmuje już zmian tożsamości — reconnect wymaga nowego tokenu.
+Brak lub błędny token → HTTP 401, sesja nie powstaje. Po upgrade'ie serwer nie przyjmuje już zmian tożsamości — reconnect wymaga ponownej autentykacji.
 
-> Uwaga: tokeny to rozwiązanie MVP. Docelowo uwierzytelnianie Windows/Kerberos — `docs/uprawnienia-i-dane-osobowe.md`.
+> Tokeny są zabronione na produkcji — `SecurityConfigurationValidator` zatrzymuje serwer przy starcie, jeśli `Security:Tokens` nie jest pusta albo wymuszono je w trybie `ActiveDirectory`.
 
 ## 2. Koperta
 
@@ -58,7 +77,7 @@ Serializacja: camelCase, enumy jako stringi camelCase (`"online"`, `"logon"`, `"
 {
   "type": "welcome",
   "payload": {
-    "serverVersion": "0.1.0",
+    "serverVersion": "0.4.0",
     "protocolVersion": 1,
     "sessionId": "9f1c…",
     "userName": "k.mazur",
@@ -78,6 +97,20 @@ Serializacja: camelCase, enumy jako stringi camelCase (`"online"`, `"logon"`, `"
 | `computers.list` | `computers.read` | `ComputerListRequest` | `ComputersResponse` |
 | `logins.query` | `logins.read` | `LoginQueryRequest` | `LoginsResponse` |
 | `users.get` | `users.read` | `UserLookupRequest` | `UserResponse` |
+| `computers.action` | `computers.control` | `ComputerActionRequest` | `ComputerActionResponse` |
+| `users.resetPassword` | `users.write` | `ResetPasswordRequest` | `ResetPasswordResponse` |
+| `users.addToGroup` | `users.write` | `AddToGroupRequest` | `AddToGroupResponse` |
+| `audit.query` | `audit.read` | `AuditQueryRequest` | `AuditResponse` |
+
+**Akcje zmieniające stan (M4) — zasady wspólne:**
+
+- Każda wymaga `confirm = true`; brak potwierdzenia → `invalidRequest`.
+- Każda kończy się wpisem audytowym (`accepted`/`failed`/`ok`/`nochange`) z aktorem, celem, wartością przed/po i adresem.
+- Hasło nigdy nie trafia do audytu (`(hasło utajnione)`).
+- Błąd zapisu audytu = operacja **nie** jest meldowana jako udana (`internal`).
+- Błąd wykonania akcji → wyjątek `upstreamUnavailable`, a wpis audytowy zapisuje wynik `failed`. Klient nigdy nie dostaje „sukcesu” przy nieudanej akcji.
+
+**Zakres `logins.query` dla nauczyciela (M3):** rola `Teacher` widzi wyłącznie logowania ze stacji w pracowniach przypisanych do jego konta (`teachers` w `classrooms.json` / mapie `ClassroomMap`). Żądanie o inną pracownię lub stację spoza przypisania → `forbidden`. Konto bez przypisanej pracowni → `forbidden`. Administrator i ReadOnly bez ograniczeń.
 
 ## 4. Przykłady
 
@@ -143,7 +176,7 @@ Serializacja: camelCase, enumy jako stringi camelCase (`"online"`, `"logon"`, `"
       "observedAtUtc": "2026-11-25T18:12:00+00:00",
       "isStale": false,
       "completeness": "partial",
-      "note": "Źródło pokrywa ostatnie 14 dni."
+      "note": "Pytanie dotyczy ostatnich 14 dni (dane przykładowe); dziennik docelowy: retencja 30 dni (M2)."
     }
   }
 }
@@ -174,7 +207,105 @@ Serializacja: camelCase, enumy jako stringi camelCase (`"online"`, `"logon"`, `"
 }
 ```
 
-### 4.4 Błąd
+### 4.4 Akcja na stacji (M4)
+
+```json
+{ "type": "computers.action", "requestId": "r-10", "payload": { "computerName": "KS-101-01", "action": "restart", "confirm": true } }
+```
+
+```json
+{
+  "type": "computers.action",
+  "requestId": "r-10",
+  "payload": {
+    "computerName": "KS-101-01",
+    "action": "restart",
+    "accepted": true,
+    "message": "Restart komputera KS-101-01 został zlecony.",
+    "auditId": "5c3d…"
+  }
+}
+```
+
+`action`: `restart` (przez `shutdown.exe /r /m \\<komputer> /f /t 0`) albo `lock`
+(zdalna blokada ekranu — wymaga `Actions:PsExecPath`; bez niej jawny błąd, nie udawany sukces).
+
+### 4.5 Reset hasła (M4)
+
+```json
+{ "type": "users.resetPassword", "requestId": "r-11", "payload": { "samAccountName": "j.kowalski", "newPassword": "NoweHaslo!2026", "confirm": true } }
+```
+
+```json
+{
+  "type": "users.resetPassword",
+  "requestId": "r-11",
+  "payload": {
+    "samAccountName": "j.kowalski",
+    "changed": true,
+    "message": "Hasło zostało zmienione.",
+    "auditId": "8a71…"
+  }
+}
+```
+
+Hasło musi mieć min. 8 znaków. Nigdy nie trafia do audytu ani logów.
+
+### 4.6 Dodanie do grupy (M4)
+
+```json
+{ "type": "users.addToGroup", "requestId": "r-12", "payload": { "samAccountName": "j.kowalski", "groupName": "Klasa-3TI", "confirm": true } }
+```
+
+```json
+{
+  "type": "users.addToGroup",
+  "requestId": "r-12",
+  "payload": {
+    "samAccountName": "j.kowalski",
+    "groupName": "Klasa-3TI",
+    "changed": true,
+    "message": "Dodano konto do grupy.",
+    "auditId": "c21b…"
+  }
+}
+```
+
+Operacja jest idempotentna: konto już w grupie → `changed: false`, audyt z wynikiem `nochange`.
+
+### 4.7 Zapytanie o audyt (M3/M4)
+
+```json
+{ "type": "audit.query", "requestId": "r-13", "payload": { "target": "KS-101-01", "take": 20 } }
+```
+
+```json
+{
+  "type": "audit.query",
+  "requestId": "r-13",
+  "payload": {
+    "items": [
+      {
+        "id": "5c3d…",
+        "timestampUtc": "2026-11-26T09:14:02+00:00",
+        "actor": "admin.it",
+        "role": "Administrator",
+        "capability": "computers.control",
+        "target": "KS-101-01",
+        "before": "status=online (obserwacja 2026-11-26 09:13 UTC)",
+        "after": "Wydano: restart",
+        "result": "accepted",
+        "remoteAddress": "192.168.1.10"
+      }
+    ],
+    "freshness": { "source": "Dziennik audytu (lokalny)", "observedAtUtc": "2026-11-26T09:14:05+00:00", "isStale": false, "completeness": "complete" }
+  }
+}
+```
+
+Filtry: `target` (podciąg, np. komputer albo `sam → grupa`), `capability` (np. `computers.control`), `take` ≤ 200. Wymaga `audit.read`. Wynik posortowany malejąco po czasie.
+
+### 4.8 Błąd
 
 ```json
 {
@@ -184,7 +315,7 @@ Serializacja: camelCase, enumy jako stringi camelCase (`"online"`, `"logon"`, `"
 }
 ```
 
-### 4.5 Zdarzenie push
+### 4.9 Zdarzenie push
 
 ```json
 {
@@ -212,8 +343,10 @@ Serializacja: camelCase, enumy jako stringi camelCase (`"online"`, `"logon"`, `"
 | Konto nie istnieje | `error: notFound` |
 | Inwentarz obcięty limitem `MaxComputers` | poprawna lista + `freshness.completeness = partial` i nota z liczbami |
 | Stan nie był jeszcze sprawdzony (brak adresu/timeout pingu) | lista z `status = unknown`, `freshness.completeness = unavailable` |
-| Historia logowań przed etapem M2 | `logins.query` z pustą listą, ale `completeness = unavailable` i nota „etap M2” |
+| Historia: stacje bez dostępu do dziennika (M2) | `completeness = partial` + nota z liczbą stacji bez dostępu |
+| Historia: tryb AD bez skonfigurowanego zbioru (M1.5) | `logins.query` z pustą listą, ale `completeness = unavailable` (gdy `UseMockDataForLogins=false` i brak magazynu) |
 | Zakres zapytania przed retencją | `completeness = partial` + nota z początkiem retencji |
+| Nauczyciel pyta o cudzą pracownię/stację (M3) | `error: forbidden` — nigdy cicha pusta lista |
 
 Zasada: **pusty wynik nigdy nie jest jedyną informacją** — zawsze towarzyszy mu
 `freshness` mówiące, czy źródło w ogóle odpowiedziało.
@@ -239,3 +372,4 @@ Brak mechanizmu kolejki/`since` w wersji 1 — świadoma decyzja: pełny odczyt 
 - Brak subskrypcji tematycznych (klient dostaje wszystkie zdarzenia stanu).
 - Brak strumieniowania dużych list (paginacja po `take`, brak kursora).
 - Brak kompresji ramek (przy 30 sesjach i małych wiadomościach niepotrzebna).
+- Retencja historii logowań: 30 dni (M2; wartość do potwierdzenia przez DPO). Retencja audytu: 12 miesięcy.

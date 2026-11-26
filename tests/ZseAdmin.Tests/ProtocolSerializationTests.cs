@@ -53,6 +53,93 @@ public sealed class ProtocolSerializationTests
     }
 
     [Fact]
+    public void Akcja_na_stacji_round_trip_zachowuje_confirm()
+    {
+        var request = new ComputerActionRequest("KS-101-01", ComputerAction.Restart, Confirm: true);
+
+        var json = JsonSerializer.Serialize(
+            WsEnvelope.Create(MessageTypes.ComputersAction, "req-m4-1", request),
+            ProtocolJson.Options);
+
+        var parsed = JsonSerializer.Deserialize<WsEnvelope>(json, ProtocolJson.Options)!
+            .ReadPayload<ComputerActionRequest>();
+
+        Assert.NotNull(parsed);
+        Assert.True(parsed!.Confirm);
+        Assert.Equal("KS-101-01", parsed.ComputerName);
+        Assert.Equal(ComputerAction.Restart, parsed.Action);
+
+        using var document = JsonDocument.Parse(json);
+        Assert.Equal("restart", document.RootElement.GetProperty("payload").GetProperty("action").GetString());
+    }
+
+    [Fact]
+    public void Reset_hasla_round_trip_zachowuje_haslo_tylko_w_transkrypcie()
+    {
+        var request = new ResetPasswordRequest("j.kowalski", "tajne-haslo-1", Confirm: true);
+
+        var json = JsonSerializer.Serialize(
+            WsEnvelope.Create(MessageTypes.UsersResetPassword, "req-m4-2", request),
+            ProtocolJson.Options);
+
+        var parsed = JsonSerializer.Deserialize<WsEnvelope>(json, ProtocolJson.Options)!
+            .ReadPayload<ResetPasswordRequest>();
+
+        Assert.NotNull(parsed);
+        Assert.Equal("tajne-haslo-1", parsed!.NewPassword);
+        Assert.True(parsed.Confirm);
+    }
+
+    [Fact]
+    public void Odpowiedz_audytu_da_sie_odczytac_wraz_z_hashem()
+    {
+        var entry = new AuditEntryDto(
+            Guid.NewGuid(),
+            Now,
+            "admin.it",
+            "Administrator",
+            "computers.control",
+            "KS-101-01",
+            "status=online",
+            "Wydano: restart",
+            "accepted",
+            "192.168.1.10");
+
+        var response = new AuditResponse(
+            new[] { entry },
+            new DataFreshnessDto("Dziennik audytu (lokalny)", Now, false, DataCompleteness.Complete, null));
+
+        var json = JsonSerializer.Serialize(
+            WsEnvelope.Create(MessageTypes.AuditQuery, "req-m4-3", response),
+            ProtocolJson.Options);
+
+        var parsed = JsonSerializer.Deserialize<WsEnvelope>(json, ProtocolJson.Options)!
+            .ReadPayload<AuditResponse>();
+
+        Assert.NotNull(parsed);
+        Assert.Single(parsed!.Items);
+        Assert.Equal("KS-101-01", parsed.Items[0].Target);
+        Assert.Equal("accepted", parsed.Items[0].Result);
+    }
+
+    [Fact]
+    public void Odpowiedz_dodania_do_grupy_ma_flage_changed()
+    {
+        var response = new AddToGroupResponse("j.kowalski", "Klasa-3TI", true, "Dodano.", Guid.NewGuid());
+
+        var json = JsonSerializer.Serialize(
+            WsEnvelope.Create(MessageTypes.UsersAddToGroup, "req-m4-4", response),
+            ProtocolJson.Options);
+
+        var parsed = JsonSerializer.Deserialize<WsEnvelope>(json, ProtocolJson.Options)!
+            .ReadPayload<AddToGroupResponse>();
+
+        Assert.NotNull(parsed);
+        Assert.True(parsed!.Changed);
+        Assert.Equal("Klasa-3TI", parsed.GroupName);
+    }
+
+    [Fact]
     public void Blad_ma_kod_i_wiadomosc()
     {
         var envelope = WsEnvelope.Create(

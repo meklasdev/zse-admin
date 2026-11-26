@@ -30,7 +30,7 @@
 <body>
   <header>
     <h1>ZSE-Admin — konsola protokołu</h1>
-    <p>Ręczne wywołanie wiadomości z docs/api-websocket.md, bez uruchamiania klienta WPF.</p>
+    <p>Ręczne wywołanie wiadomości z docs/api-websocket.md, bez uruchamiania klienta WPF. Token tylko dla trybu Development; na produkcji (ActiveDirectory) użyj klienta WPF — przeglądarka nie przeprowadzi Negotiate z Kestrel.</p>
   </header>
 
   <main>
@@ -49,6 +49,29 @@
         </div>
       </div>
       <div id="state">bez połączenia</div>
+
+      <h2 style="margin-top:22px">Akcje (M4)</h2>
+      <label for="actionComputer">Komputer (akcja)</label>
+      <input id="actionComputer" placeholder="KS-101-01" />
+      <label class="row" style="align-items:center; margin-top:8px">
+        <input type="checkbox" id="confirmAction" style="width:auto" checked />
+        <span style="font-size:12px; color:#374151">confirm=true (wymagane przez serwer)</span>
+      </label>
+      <button id="restart" class="secondary">computers.action restart</button>
+      <button id="lock" class="secondary">computers.action lock</button>
+      <label for="resetUser">Reset hasła — konto</label>
+      <input id="resetUser" placeholder="j.kowalski" />
+      <label for="resetPassword">Nowe hasło (min. 8 znaków, nigdy nie trafia do audytu)</label>
+      <input id="resetPassword" type="password" autocomplete="new-password" />
+      <button id="reset" class="secondary">users.resetPassword</button>
+      <label for="groupUser">Dodanie do grupy — konto</label>
+      <input id="groupUser" placeholder="j.kowalski" />
+      <label for="groupName">Grupa AD</label>
+      <input id="groupName" placeholder="Klasa-3TI" />
+      <button id="addGroup" class="secondary">users.addToGroup</button>
+      <label for="auditTarget">Audyt — filtr po obiekcie (opcjonalnie)</label>
+      <input id="auditTarget" placeholder="KS-101-01" />
+      <button id="audit" class="secondary">audit.query</button>
 
       <h2 style="margin-top:22px">Zapytania</h2>
       <label for="classroom">Pracownia (id)</label>
@@ -135,6 +158,39 @@
       const sam = document.getElementById('user').value.trim();
       if (!sam) { setState('podaj samAccountName', false); return; }
       send('users.get', { samAccountName: sam });
+    };
+    const confirmValue = () => document.getElementById('confirmAction').checked;
+
+    document.getElementById('restart').onclick = () => {
+      const computer = document.getElementById('actionComputer').value.trim();
+      if (!computer) { setState('podaj komputer', false); return; }
+      if (!confirm(`Wymusić restart komputera ${computer}?`)) return;
+      send('computers.action', { computerName: computer, action: 'restart', confirm: confirmValue() });
+    };
+    document.getElementById('lock').onclick = () => {
+      const computer = document.getElementById('actionComputer').value.trim();
+      if (!computer) { setState('podaj komputer', false); return; }
+      if (!confirm(`Zablokować ekran komputera ${computer}?`)) return;
+      send('computers.action', { computerName: computer, action: 'lock', confirm: confirmValue() });
+    };
+    document.getElementById('reset').onclick = () => {
+      const sam = document.getElementById('resetUser').value.trim();
+      const pass = document.getElementById('resetPassword').value;
+      if (!sam || pass.length < 8) { setState('podaj konto i hasło min. 8 znaków', false); return; }
+      if (!confirm(`Zresetować hasło konta ${sam}?`)) return;
+      send('users.resetPassword', { samAccountName: sam, newPassword: pass, confirm: confirmValue() });
+      document.getElementById('resetPassword').value = '';
+    };
+    document.getElementById('addGroup').onclick = () => {
+      const sam = document.getElementById('groupUser').value.trim();
+      const group = document.getElementById('groupName').value.trim();
+      if (!sam || !group) { setState('podaj konto i grupę', false); return; }
+      if (!confirm(`Dodać ${sam} do grupy ${group}?`)) return;
+      send('users.addToGroup', { samAccountName: sam, groupName: group, confirm: confirmValue() });
+    };
+    document.getElementById('audit').onclick = () => {
+      const target = document.getElementById('auditTarget').value.trim();
+      send('audit.query', { target: target || null, take: 20 });
     };
     document.getElementById('ping').onclick = () => send('ping');
   </script>

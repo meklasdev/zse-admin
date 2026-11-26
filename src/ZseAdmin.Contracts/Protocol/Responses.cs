@@ -30,6 +30,30 @@ public sealed record UserResponse(
     AdUserDto User,
     DataFreshnessDto Freshness);
 
+public sealed record ComputerActionResponse(
+    string ComputerName,
+    ComputerAction Action,
+    bool Accepted,
+    string Message,
+    Guid AuditId);
+
+public sealed record ResetPasswordResponse(
+    string SamAccountName,
+    bool Changed,
+    string Message,
+    Guid AuditId);
+
+public sealed record AddToGroupResponse(
+    string SamAccountName,
+    string GroupName,
+    bool Changed,
+    string Message,
+    Guid AuditId);
+
+public sealed record AuditResponse(
+    IReadOnlyList<AuditEntryDto> Items,
+    DataFreshnessDto Freshness);
+
 /// <summary>Odpowiedź błędu. Zawsze z tym samym <c>requestId</c>, o ile żądanie je miało.</summary>
 public sealed record ErrorDto(
     ErrorCode Code,

@@ -141,7 +141,7 @@ Razem: **ok. 27–44 dni roboczych** do wersji produkcyjnej bez akcji na stacjac
 
 ---
 
-## 10a. Stan implementacji po etapie M1
+## 10a. Stan implementacji po etapach M2–M4
 
 | Obszar | Stan | Gdzie |
 |---|---|---|
@@ -151,11 +151,18 @@ Razem: **ok. 27–44 dni roboczych** do wersji produkcyjnej bez akcji na stacjac
 | Sprawdzanie dostępności stacji (ICMP z budżetem czasu) | zrobione (M1) | `Infrastructure/Ldap/StatusProbe.cs` |
 | `upstreamUnavailable` zamiast pustych list | zrobione (M1) | `MessageRouter`, `SourceUnavailableException` |
 | Adres IP stacji (WMI/ARP/DNS) | do M1.1 | — |
-| Historia logowań (WEF/dzienniki, retencja) | do M2 | `UnavailableLoginLog` jako jawny placeholder |
-| Uwierzytelnianie Windows/Kerberos, audyt | do M3 | tokeny dev w `appsettings.json` |
+| Historia logowań: zdalny odczyt 4624/4634/4625, bufor JSONL, retencja 30 dni, kompletność `partial` z notą „N z M stacji" | zaimplementowane (M2) — weryfikacja na pilocie (Windows + *Event Log Readers*) | `Infrastructure/Logins/` |
+| Windows/Kerberos (Negotiate) + grupy AD → role; odmowa bez grupy; `wss` przed upgrade'em; bramka startu (tokeny/brak wss → exit 1) | zaimplementowane (M3) | `Program.cs`, `Security/` |
+| Ograniczenie widoczności logowań nauczyciela do jego pracowni (`teachers` w `classrooms.json`) | zaimplementowane (M3) | `MessageRouter`, `ClassroomMap.ClassroomIdsForTeacher` |
+| Audyt: `audit.jsonl`, retencja 12 mies., podgląd `audit.query`, hasła poza audytem | zaimplementowane (M3/M4) | `Infrastructure/Audit/` |
+| Akcje na stacjach: restart (`shutdown.exe /r /m`), blokada (PsExec), reset hasła (LDAPS `unicodePwd`), dodanie do grupy (`member`), zawsze `confirm=true` i audyt | zaimplementowane (M4) — weryfikacja na pilocie | `Infrastructure/Actions/` |
+| Przyciski akcji w UI ukryte bez uprawnienia; potwierdzenia; pasek statusu pokazuje błąd źródła, nie „sukces” | zaimplementowane (M4) | `MainViewModel`, `WpfUserInteraction`, `ResetPasswordWindow` |
+| Konsola `debug.html` rozszerzona o M4 (`computers.action`, `users.resetPassword`, `users.addToGroup`, `audit.query`) | zrobione | `wwwroot/debug.html` |
 
-Testy: `ClassroomMapTests`, `LdapInventoryTests`, rozszerzone `MessageRouterTests`
-i `FreshnessServiceTests` — wszystkie działają bez kontrolera domeny.
+Testy: `ClassroomMapTests` (+ przypisanie nauczycieli), `SecurityConfigurationValidatorTests`,
+rozszerzone `MessageRouterTests` (scoping nauczyciela, confirm=true, audyt sukcesu/porażki),
+`ProtocolSerializationTests` (M4 round-trip), `LdapInventoryTests`, `FreshnessServiceTests`
+— wszystkie działają bez kontrolera domeny.
 
 ## 11. Co powstało w ramach tej oceny
 

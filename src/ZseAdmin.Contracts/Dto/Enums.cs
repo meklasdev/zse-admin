@@ -21,6 +21,16 @@ public enum LoginEventType
     FailedLogon = 3
 }
 
+/// <summary>Rodzaj akcji wykonywanej na stacji (etap M4).</summary>
+public enum ComputerAction
+{
+    /// <summary>Wymuszony restart (np. <c>shutdown.exe /r /f /t 0</c>).</summary>
+    Restart = 1,
+
+    /// <summary>Blokada ekranu w aktywnej sesji konsolowej.</summary>
+    Lock = 2
+}
+
 /// <summary>Kompletność danych zwróconych przez źródło.</summary>
 public enum DataCompleteness
 {

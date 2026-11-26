@@ -3,6 +3,68 @@ using ZseAdmin.Contracts;
 
 namespace ZseAdmin.Client.Core.ViewModels;
 
+/// <summary>Szczegóły znalezionego konta AD — do zakładki „Konto AD”.</summary>
+public sealed class UserDetailsViewModel
+{
+    public UserDetailsViewModel(AdUserDto dto)
+    {
+        SamAccountName = dto.SamAccountName;
+        DisplayName = dto.DisplayName ?? DisplayFormat.Missing;
+        Email = dto.Email ?? DisplayFormat.Missing;
+        EnabledText = dto.Enabled ? "tak" : "nie";
+        GroupsText = dto.Groups.Count > 0 ? string.Join(", ", dto.Groups) : "brak grup";
+        OuDistinguishedName = dto.OuDistinguishedName ?? DisplayFormat.Missing;
+        LastLogonText = DisplayFormat.DateTime(dto.LastLogonAtUtc);
+    }
+
+    public string SamAccountName { get; }
+
+    public string DisplayName { get; }
+
+    public string Email { get; }
+
+    public string EnabledText { get; }
+
+    public string GroupsText { get; }
+
+    public string OuDistinguishedName { get; }
+
+    public string LastLogonText { get; }
+}
+
+/// <summary>Pozycja dziennika audytu — do zakładki „Audyt” (i szczegółów obiektu).</summary>
+public sealed class AuditEntryItemViewModel
+{
+    public AuditEntryItemViewModel(AuditEntryDto dto)
+    {
+        Headline = $"{DisplayFormat.DateTime(dto.TimestampUtc)} · {dto.Actor} · {dto.Capability}";
+        Target = dto.Target;
+        Detail = BuildDetail(dto);
+        Result = dto.Result;
+    }
+
+    public string Headline { get; }
+
+    public string Target { get; }
+
+    public string Detail { get; }
+
+    public string Result { get; }
+
+    private static string BuildDetail(AuditEntryDto dto)
+    {
+        var change = (dto.Before, dto.After) switch
+        {
+            ({ Length: > 0 } before, { Length: > 0 } after) => $" · {before} → {after}",
+            ({ Length: > 0 } before, null) => $" · {before}",
+            _ => string.Empty
+        };
+
+        var remote = string.IsNullOrWhiteSpace(dto.RemoteAddress) ? string.Empty : $" · adres {dto.RemoteAddress}";
+        return $"wynik: {dto.Result}{change}{remote}";
+    }
+}
+
 /// <summary>Pozycja listy pracowni. <see cref="Id"/> = <c>null</c> oznacza „wszystkie pracownie”.</summary>
 public sealed class ClassroomItemViewModel
 {

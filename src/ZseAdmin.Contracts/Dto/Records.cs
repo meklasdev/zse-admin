@@ -25,7 +25,11 @@ public sealed record ComputerDto(
     DateTimeOffset? LastLogonAtUtc,
     string? OperatingSystem);
 
-/// <summary>Pojedyncze zdarzenie logowania. Historia zdarzeniowa, nie lista aktywnych sesji.</summary>
+/// <summary>
+/// Pojedyncze zdarzenie logowania. Historia zdarzeniowa, nie lista aktywnych sesji.
+/// <see cref="ClassroomId"/> jest denormalizowany przy zbiorze (etap M2) i służy m.in.
+/// do ograniczenia widoczności historii dla nauczycieli (etap M3).
+/// </summary>
 public sealed record LoginEventDto(
     Guid Id,
     string UserSamAccountName,
@@ -33,7 +37,8 @@ public sealed record LoginEventDto(
     string ComputerName,
     DateTimeOffset OccurredAtUtc,
     LoginEventType Type,
-    string Source);
+    string Source,
+    string? ClassroomId = null);
 
 /// <summary>Konto AD wraz z przynależnością do grup.</summary>
 public sealed record AdUserDto(
@@ -55,3 +60,20 @@ public sealed record DataFreshnessDto(
     bool IsStale,
     DataCompleteness Completeness,
     string? Note);
+
+/// <summary>
+/// Wpis audytowy (etap M4): kto, kiedy, na jakim obiekcie, co się zmieniło przed i po,
+/// z jakim wynikiem. <see cref="Before"/>/<see cref="After"/> nigdy nie zawierają sekretów
+/// (hasło jest zapisywane jako „(hasło utajnione)”). Retencja: 12 miesięcy.
+/// </summary>
+public sealed record AuditEntryDto(
+    Guid Id,
+    DateTimeOffset TimestampUtc,
+    string Actor,
+    string Role,
+    string Capability,
+    string Target,
+    string? Before,
+    string? After,
+    string Result,
+    string? RemoteAddress);

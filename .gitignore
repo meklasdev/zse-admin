@@ -36,3 +36,6 @@ appsettings.Local.json
 *.secrets.json
 .env
 .env.*
+
+## Dane runtime (magazyn logowań i audyt — nie commitować)
+data/

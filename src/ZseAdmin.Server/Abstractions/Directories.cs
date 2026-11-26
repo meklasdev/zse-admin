@@ -57,7 +57,15 @@ public interface ILoginLog
     /// <summary>Początek retencji źródła (UTC); <c>null</c> = źródło nie deklaruje zakresu.</summary>
     DateTimeOffset? RetentionStartUtc { get; }
 
-    Task<LoginQueryResult> QueryAsync(LoginQueryRequest query, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// <paramref name="allowedClassroomIds"/> (M3) ogranicza widoczność do pracowni —
+    /// nauczyciel widzi wyłącznie zdarzenia ze stacji w pracowniach mu przypisanych.
+    /// <c>null</c> = bez ograniczenia (Administrator, ReadOnly).
+    /// </summary>
+    Task<LoginQueryResult> QueryAsync(
+        LoginQueryRequest query,
+        CancellationToken cancellationToken = default,
+        IReadOnlyCollection<string>? allowedClassroomIds = null);
 }
 
 public interface IAdDirectory

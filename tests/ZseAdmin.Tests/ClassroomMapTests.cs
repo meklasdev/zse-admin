@@ -17,6 +17,70 @@ public sealed class ClassroomMapTests
     };
 
     [Fact]
+    public void Nauczyciel_ma_przypisane_pracownie_case_insensitive()
+    {
+        var map = ClassroomMap.Create(new[]
+        {
+            new ClassroomDefinition
+            {
+                Id = "prac-101",
+                Name = "Pracownia 101",
+                Ous = new List<string> { "OU=PRAC101,OU=Pracownie,DC=zse,DC=local" },
+                Teachers = new List<string> { "k.mazur" }
+            },
+            new ClassroomDefinition
+            {
+                Id = "prac-102",
+                Name = "Pracownia 102",
+                Ous = new List<string> { "OU=PRAC102,OU=Pracownie,DC=zse,DC=local" },
+                Teachers = new List<string> { "K.MAZUR" }
+            }
+        }).Map!;
+
+        var mine = map.ClassroomIdsForTeacher("K.Mazur");
+
+        Assert.Equal(new[] { "prac-101", "prac-102" }, mine.OrderBy(x => x, StringComparer.Ordinal));
+        Assert.Empty(map.ClassroomIdsForTeacher("nikt.taki"));
+        Assert.Empty(map.ClassroomIdsForTeacher(""));
+    }
+
+    [Fact]
+    public void Pusty_wpis_nauczyciela_to_blad_konfiguracji()
+    {
+        var result = ClassroomMap.Create(new[]
+        {
+            new ClassroomDefinition
+            {
+                Id = "prac-101",
+                Name = "Pracownia 101",
+                Ous = new List<string> { "OU=PRAC101,OU=Pracownie,DC=zse,DC=local" },
+                Teachers = new List<string> { "k.mazur", "  " }
+            }
+        });
+
+        Assert.Null(result.Map);
+        Assert.Contains(result.Errors, e => e.Contains("teachers", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Duplikaty_nauczycieli_sa_skladane_case_insensitive()
+    {
+        var result = ClassroomMap.Create(new[]
+        {
+            new ClassroomDefinition
+            {
+                Id = "prac-101",
+                Name = "Pracownia 101",
+                Ous = new List<string> { "OU=PRAC101,OU=Pracownie,DC=zse,DC=local" },
+                Teachers = new List<string> { "k.mazur", "K.Mazur", "k.mazur" }
+            }
+        });
+
+        Assert.NotNull(result.Map);
+        Assert.Single(result.Map!.Classrooms[0].Teachers);
+    }
+
+    [Fact]
     public void Komputer_w_OU_pracowni_dostaje_przypisanie()
     {
         var map = ClassroomMap.Create(new[]

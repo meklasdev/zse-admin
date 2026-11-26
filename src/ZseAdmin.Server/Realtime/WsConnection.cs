@@ -27,18 +27,23 @@ public sealed class WsConnection
         ClientIdentity identity,
         MessageRouter router,
         ConnectionRegistry registry,
-        ILogger logger)
+        ILogger logger,
+        string? remoteAddress = null)
     {
         _socket = socket;
         Identity = identity;
         _router = router;
         _registry = registry;
         _logger = logger;
+        RemoteAddress = remoteAddress;
     }
 
     public string Id { get; } = Guid.NewGuid().ToString("n");
 
     public ClientIdentity Identity { get; }
+
+    /// <summary>Adres źródłowy sesji (do audytu i logów); <c>null</c> gdy nieznany.</summary>
+    public string? RemoteAddress { get; }
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
@@ -167,7 +172,7 @@ public sealed class WsConnection
     {
         try
         {
-            var response = await _router.HandleAsync(envelope, Identity, cancellationToken);
+            var response = await _router.HandleAsync(envelope, Identity, cancellationToken, RemoteAddress);
             await SendAsync(response, cancellationToken);
         }
         catch (ProtocolException ex)

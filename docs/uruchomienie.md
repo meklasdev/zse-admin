@@ -24,7 +24,7 @@ Serwer nasłuchuje na `http://0.0.0.0:5080`:
 - `http://localhost:5080/healthz` — status, liczba sesji, tryb danych,
 - `http://localhost:5080/debug.html` — konsola protokołu (ręczne wywołania `classrooms.list`, `computers.list`, `logins.query`, `users.get`, `ping`).
 
-W konsoli użyj tokenu `dev-admin-token` (Administrator) lub `dev-teacher-token` (Nauczyciel) z `appsettings.json`.
+W konsoli użyj tokenu `dev-admin-token` (Administrator) lub `dev-teacher-token` (Nauczyciel) — tokenów deweloperskich z `appsettings.Development.json` (baza `appsettings.json` celowo nie zawiera żadnych tokenów). Konsola obsługuje też akcje M4 (`computers.action`, `users.resetPassword`, `users.addToGroup`, `audit.query`).
 
 ## 3. Klient WPF
 
@@ -37,9 +37,14 @@ Klient czyta `appsettings.json` z katalogu wyjściowego:
 ```json
 {
   "ServerUrl": "ws://localhost:5080/ws",
-  "Token": "dev-admin-token"
+  "Token": "dev-admin-token",
+  "UseWindowsAuthentication": false
 }
 ```
+
+Na produkcji (`ActiveDirectory` na serwerze) ustaw `"Token": null` (albo usuń wpis)
+i `"UseWindowsAuthentication": true` oraz `wss://` w `ServerUrl` — klient połączy się
+poświadczeniami zalogowanego konta Windows.
 
 Po uruchomieniu łączy się automatycznie, ponawia połączenie z backoffem i po każdym połączeniu pobiera pełny stan.
 
@@ -76,8 +81,22 @@ Testy pokrywają: progi świeżości, filtrowanie komputerów i logowań, uprawn
 | `ZseAdmin:Freshness:ComputersSeconds` | próg starzenia stanu | `120` |
 | `ZseAdmin:Freshness:LoginsSeconds` | próg starzenia logowań | `900` |
 | `ZseAdmin:Freshness:DirectorySeconds` | próg starzenia katalogu AD | `3600` |
-| `Security:RequireToken` | czy wymagać tokenu | `true` |
-| `Security:Tokens[]` | lista `Name`/`Token`/`Role` | dwa tokeny dev |
+| `Security:Authentication:Mode` | `DevelopmentTokens` (dev) albo `ActiveDirectory` (produkcja) | `DevelopmentTokens` |
+| `Security:Tokens[]` | tokeny dev (`Name`/`Token`/`Role`) — **zabronione na produkcji** (w dev w `appsettings.Development.json`) | puste w bazie |
+| `Security:RequireSecureTransport` | odrzuca nie-`wss` na `/ws` (HTTP 400) | `false` dev / `true` prod |
+| `Security:TrustForwardedHeaders` | ufa `X-Forwarded-Proto: https` (TLS na IIS/proxy) | `true` |
+| `Security:GroupMapping:AdministratorGroup` | grupa AD → Administrator | `ZSE-Admin-Administratorzy` |
+| `Security:GroupMapping:TeacherGroup` | grupa AD → Nauczyciel | `ZSE-Admin-Nauczyciele` |
+| `Security:GroupMapping:ReadOnlyGroup` | grupa AD → ReadOnly (puste = wyłączone) | `ZSE-Admin-Podglad` |
+| `ZseAdmin:Data:Directory` | katalog magazynów lokalnych (`logins.jsonl`, `audit.jsonl`) | `data` |
+| `ZseAdmin:Logins:PollSeconds` | interwał zbioru logowań (min. 15) | `60` |
+| `ZseAdmin:Logins:RetentionDays` | retencja historii logowań | `30` |
+| `ZseAdmin:Logins:StationAccessBudgetSeconds` | budżet odczytu dzienników na cykl | `30` |
+| `ZseAdmin:Actions:PsExecPath` | ścieżka do PsExec — tylko dla akcji „lock” | puste (lock → jawny błąd) |
+| `ZseAdmin:Actions:ShutdownTimeoutSeconds` | limit czasu narzędzi systemowych | `15` |
+| `ZseAdmin:Audit:RetentionMonths` | retencja audytu | `12` |
+
+Na produkcji skopiuj `appsettings.Production.json` jako bazę i uzupełnij wartości — bramka walidacyjna zatrzyma start przy konfiguracji niezgodnej z M3 (tokeny, brak `wss`, `UseMockData`, LDAP bez TLS).
 
 Sekrety trzymaj poza repozytorium: `appsettings.Local.json` (ignorowany przez git) albo zmienne środowiskowe, np.
 
@@ -91,12 +110,19 @@ $env:Security__Tokens__0__Token = "…"
 
    ```json
    [
-     { "id": "prac-101", "name": "Pracownia 101", "ous": ["OU=PRAC101,OU=Pracownie,DC=zse,DC=local"] }
+     {
+       "id": "prac-101",
+       "name": "Pracownia 101",
+       "ous": ["OU=PRAC101,OU=Pracownie,DC=zse,DC=local"],
+       "teachers": ["k.mazur", "t.lewandowski"]
+     }
    ]
    ```
 
    Jedno OU może należeć tylko do jednej pracowni. Kolizja, brak `id`/`name` albo DN
    w złym formacie **zatrzymuje serwer** z komunikatem na stderr — to celowe (kryterium M1).
+   Pole `teachers` (M3) wyznacza, którzy nauczyciele widzą historię logowań danej pracowni
+   — brak wpisu = nauczyciel nie widzi historii w ogóle. Lista może być pusta (pracownia bez nauczycieli).
 
 2. Wyłącz dane przykładowe i wskaż katalog:
 
@@ -126,7 +152,43 @@ $env:Security__Tokens__0__Token = "…"
    | konto z wieloma grupami | wszystkie grupy, bez ucięcia |
    | nieistniejące konto | `notFound` |
    | zły host DC | `upstreamUnavailable`, nie pusta lista |
-   | `logins.query` bez M2 | `unavailable` z powodem (albo makieta, gdy `UseMockDataForLogins`) |
+   | `logins.query` z M1.5 | `unavailable` z powodem (albo makieta, gdy `UseMockDataForLogins=true`) |
+
+## 5b. Historia logowań (M2) — z prawdziwymi stacjami
+
+1. Konto usługi musi mieć prawo odczytu dziennika zabezpieczeń na stacjach
+   (członkostwo w lokalnej grupie „Czytelnicy dzienników zdarzeń” / *Event Log Readers*, wdrażane GPO).
+2. Ustaw `ZseAdmin__UseMockDataForLogins=false` — wtedy `LoginEventCollectorService` cyklicznie
+   (domyślnie co 60 s) czyta zdarzenia 4624/4634/4625 ze wszystkich stacji z inwentarza AD
+   i zapisuje je w `data/logins.jsonl` (retencja 30 dni, czyszczenie po znacznikach czasu przy każdym cyklu).
+3. Zdarzenie powinno być widoczne w aplikacji w ciągu ≤ 2 min od zalogowania (cykl + poll).
+4. Stacje bez dostępu do dziennika są liczone i raportowane w `freshness` jako `partial`
+   z notą („brak dostępu na N z M stacji”) — nigdy cicha pusta lista.
+5. Pytanie o zakres sprzed retencji zwraca `partial` z notą z początkiem retencji.
+
+## 5c. Produkcja (M3): Windows/Kerberos + grupy AD + audyt
+
+1. `Security__Authentication__Mode=ActiveDirectory`, `Security__RequireSecureTransport=true`,
+   `Security__Tokens=[]` (puste), `ZseAdmin__UseMockData=false`, `ZseAdmin__Directory__UseSsl=true`.
+   Przy złamaniu którejkolwiek z tych reguł serwer **nie startuje** (kod wyjścia 1, lista błędów na stderr).
+2. TLS na `/ws`: certyfikat na Kestrel (`https://…:5443`) albo terminacja na IIS z nagłówkiem
+   `X-Forwarded-Proto: https` (`Security:TrustForwardedHeaders=true` — tylko za zaufanym proxy).
+3. Za IIS: rola „Windows Authentication” włączona, „Anonymous” wyłączony; na Kestrel handler
+   Negotiate jest rejestrowany automatycznie przez serwer (pakiet `Microsoft.AspNetCore.Authentication.Negotiate`).
+4. Grupy AD → role (grupy zakłada administrator domeny; nazwy konfigurowalne):
+   - `ZSE-Admin-Administratorzy` → Administrator (wszystko, w tym akcje M4 i audyt),
+   - `ZSE-Admin-Nauczyciele` → Nauczyciel (odczyt + logowania **wyłącznie swoich pracowni** z `teachers` w `classrooms.json`),
+   - `ZSE-Admin-Podglad` → ReadOnly (odczyt bez kont).
+   Użytkownik spoza tych grup nie połączy się (401). Zmiana członkostwa działa od następnego połączenia.
+5. Audyt (`data/audit.jsonl`, retencja 12 miesięcy, przycinany przy starcie):
+   każda akcja M4 (restart/lock/reset hasła/dodanie do grupy) — aktor, cel, wartość przed/po,
+   wynik i adres zdalny; odrzucone próby połączenia (`auth.connect`/`denied`).
+   Hasła nigdy nie trafiają do audytu. Błąd zapisu audytu = operacja nie jest meldowana jako udana.
+   Podgląd: klient WPF → zakładka „Audyt” (Administrator) albo `audit.query` w `debug.html`.
+6. Minimalne prawa konta usługi: odczyt OU (komputery, konta, grupy `tokenGroups`),
+   *Event Log Readers* na stacjach (M2) oraz — tylko dla M4 — delegowane prawo resetu hasła
+   (`unicodePwd` wymaga LDAPS) i modyfikacji `member` w wybranych grupach.
+   Bez prawa resetu hasła akcje M4 po prostu kończą się jawnym błędem w audycie.
 
 ## 6. Publikacja na Windows Server 2016
 
@@ -160,16 +222,18 @@ dotnet publish src/ZseAdmin.Client -c Release -r win-x64 --self-contained false 
 | Objaw | Prawdopodobna przyczyna | Co zrobić |
 |---|---|---|
 | Klient: „łączenie z serwerem…” bez końca | zły `ServerUrl` lub serwer nie działa | sprawdź `/healthz` w przeglądarce |
-| Błąd 400 na `/ws` | żądanie nie jest upgrade'em WS | użyj klienta WS, nie zwykłego GET |
-| Połączenie odrzucone (401) | brak/zły token | sprawdź `Security:Tokens` i `appsettings.json` klienta |
-| Odpowiedzi `forbidden` | rola bez uprawnienia | użyj `dev-admin-token` lub zmień rolę |
+| Błąd 400 na `/ws` | nie `wss` przy `RequireSecureTransport=true` albo brak upgrade'u | użyj `wss://…`, sprawdź certyfikat/proxy |
+| Błąd 503 przy łączeniu | AD/grupy nieosiągalne (tryb ActiveDirectory) | sprawdź `/healthz` (`authentication`), dostęp do DC |
+| Połączenie odrzucone (401) | brak/zły token albo brak tożsamości Windows | dev: sprawdź `Security:Tokens` w `appsettings.Development.json`; prod: użytkownik musi być w grupie `ZSE-Admin-*` |
+| Odpowiedzi `forbidden` dla nauczyciela | konto spoza `teachers` pracowni albo pracownia bez przypisania | dopisz konto do `teachers` w `classrooms.json` |
+| Blokada stacji kończy się błędem | brak PsExec (`Actions:PsExecPath`) | skonfiguruj PsExec albo użyj GPO do blokady |
 | `welcome` nie przychodzi | serwer za proxy bez WebSocketów | włącz funkcję WebSocket w IIS, sprawdź `Upgrade` |
 | Lista pusta, brak błędu | filtr pracowni bez komputerów | wybierz „Wszystkie pracownie” |
 | Wszystko „brak danych” | `statusObservedAtUtc = null` (dane przykładowe) | poczekaj na cykl monitorowania (15 s) |
 
 ## 9. Status weryfikacji
 
-Kod powstał w środowisku bez .NET SDK i bez dostępu do NuGet, więc **nie został tu skompilowany ani przetestowany**. To samo dotyczy etapu M1 (adapter LDAP). Weryfikacja odbywa się przez:
+Kod powstał w środowisku bez .NET SDK i bez dostępu do NuGet, więc **nie został tu skompilowany ani przetestowany**. Dotyczy to etapu M1 (adapter LDAP), M2 (kolekcjoner EventLog), M3 (Negotiate/ACL) i M4 (akcje). Weryfikacja odbywa się przez:
 
 - CI (`.github/workflows/ci.yml`) na `windows-latest`: restore, build, test, publish;
 - lokalne `dotnet build` / `dotnet test` na maszynie z .NET 8.
@@ -179,9 +243,8 @@ Rzeczy do sprawdzenia przy pierwszym buildzie:
 1. `Microsoft.Extensions.Logging` jest używany wyłącznie w projekcie serwera (framework ASP.NET Core) — warstwa `Client.Core` nie ma zależności zewnętrznych.
 2. Wersje pakietów testowych (`Microsoft.NET.Test.Sdk` 17.10.0, `xunit` 2.8.1) — jeśli NuGet zgłosi brak, podnieś do najnowszych 2.x/17.x.
 3. Uruchomienie klienta WPF wymaga Windows; na Linuksie działa tylko restore/build z `EnableWindowsTargeting`.
-4. M1: pakiet `System.DirectoryServices.Protocols` 8.0.0 — jeśli NuGet zgłosi brak, użyj wersji
-   zgodnej z zainstalowanym SDK (8.0.x).
-5. M1: `LdapDirectoryReader` używa `PageResultRequestControl` i `SearchResultEntry.Attributes` —
-   warto potwierdzić na kontrolerze testowym, że stronicowanie zwraca wszystkie komputery
-   (limit 1000 obiektów na stronę) i że `tokenGroups` jest czytane przy uprawnieniach konta usługi.
-4. Pierwszy build na Windows Server 2016 nie wymaga dodatkowych pakietów poza .NET 8 Desktop Runtime dla klienta.
+4. Pakiet `System.DirectoryServices.Protocols` 8.0.0 — jeśli NuGet zgłosi brak, użyj wersji zgodnej z zainstalowanym SDK (8.0.x).
+5. M2: `WindowsSecurityEventReader` używa indeksów `record.Properties` (5 = TargetUserName, 1 = SubjectUserName) — potwierdzić na docelowym Windows, że dziennik zabezpieczeń zwraca je w tym układzie. Kolekcjoner przeżyje błąd jednej stacji (zgłasza ją jako niedostępną).
+6. M3: Negotiate na Kestrel wymaga zarejestrowanego SPN (`setspn -S HTTP/zse-admin.zse.local ZSE\svc-zseadmin`) albo konta komputerowego z odpowiednim SPN — bez SPN Kerberos wraca do NTLM albo 401. Za IIS: Windows Authentication w UI konfiguracji witryny.
+7. M4: `shutdown.exe /r /m` wymaga uprawnień zdalnych (domyślnie: administratorzy stacji); zablokowanie ekranu przez PsExec wymaga zgody na pierwszy przebieg (`-accepteula` już w arg.) i prawa admina na stacji.
+8. Pierwszy build na Windows Server 2016 nie wymaga dodatkowych pakietów poza .NET 8 Desktop Runtime dla klienta.

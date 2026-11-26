@@ -1,14 +1,18 @@
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore.Http;
+using ZseAdmin.Server.Abstractions;
 using ZseAdmin.Server.Configuration;
 
 namespace ZseAdmin.Server.Security;
 
 /// <summary>
-/// Uwierzytelnianie tokenem przekazywanym w nagłówku <c>X-ZseAdmin-Token</c>
-/// albo w parametrze zapytania <c>access_token</c> (przeglądarka nie potrafi ustawić nagłówka WS).
+/// Uwierzytelnianie tokenem (wyłącznie development): nagłówek <c>X-ZseAdmin-Token</c>
+/// albo parametr <c>?access_token=</c>. Token jest porównywany w czasie stałym.
+/// Na produkcji ten mechanizm jest wyłączony — <see cref="SecurityConfigurationValidator"/>
+/// zatrzymuje serwer, a nawet w trybie zdegradowanym authenticator zwraca wtedy <c>null</c>.
 /// </summary>
-public sealed class TokenAuthenticator : ITokenAuthenticator
+public sealed class TokenAuthenticator : IRequestAuthenticator
 {
     private readonly SecurityOptions _options;
 
@@ -17,33 +21,33 @@ public sealed class TokenAuthenticator : ITokenAuthenticator
         _options = options;
     }
 
-    public ClientIdentity? Authenticate(HttpRequest request)
+    public Task<ClientIdentity?> AuthenticateAsync(HttpContext context, CancellationToken cancellationToken = default)
     {
-        if (!_options.RequireToken)
+        if (!string.Equals(_options.Authentication.Mode, AuthenticationModes.DevelopmentTokens, StringComparison.OrdinalIgnoreCase))
         {
-            return RoleCatalog.CreateIdentity("anonymous-dev", Roles.Administrator);
+            return Task.FromResult<ClientIdentity?>(null);
         }
 
-        var token = request.Query["access_token"].FirstOrDefault();
+        var token = context.Request.Query["access_token"].FirstOrDefault();
         if (string.IsNullOrWhiteSpace(token))
         {
-            token = request.Headers["X-ZseAdmin-Token"].FirstOrDefault();
+            token = context.Request.Headers["X-ZseAdmin-Token"].FirstOrDefault();
         }
 
         if (string.IsNullOrWhiteSpace(token))
         {
-            return null;
+            return Task.FromResult<ClientIdentity?>(null);
         }
 
         foreach (var entry in _options.Tokens)
         {
             if (!string.IsNullOrEmpty(entry.Token) && FixedTimeEquals(entry.Token, token))
             {
-                return RoleCatalog.CreateIdentity(entry.Name, entry.Role);
+                return Task.FromResult<ClientIdentity?>(RoleCatalog.CreateIdentity(entry.Name, entry.Role));
             }
         }
 
-        return null;
+        return Task.FromResult<ClientIdentity?>(null);
     }
 
     private static bool FixedTimeEquals(string expected, string actual)

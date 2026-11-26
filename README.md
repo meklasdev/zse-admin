@@ -135,7 +135,7 @@ dotnet run --project src/ZseAdmin.Client      # tylko Windows (WPF)
 dotnet test
 ```
 
-Tokeny deweloperskie: `dev-admin-token` (Administrator), `dev-teacher-token` (Nauczyciel).
+Tokeny deweloperskie (tylko `appsettings.Development.json`): `dev-admin-token` (Administrator), `dev-teacher-token` (Nauczyciel).
 Szczegóły, konfiguracja i rozwiązywanie problemów: [`docs/uruchomienie.md`](docs/uruchomienie.md).
 
 ## Status
@@ -146,10 +146,18 @@ Szczegóły, konfiguracja i rozwiązywanie problemów: [`docs/uruchomienie.md`](
   komputery i konta z AD, grupy przez `tokenGroups` jednym zapytaniem, sprawdzanie dostępności
   stacji (ICMP), limity i cache, `upstreamUnavailable` zamiast pustych list. Szczegóły:
   [`docs/adr/0005-adaptery-ad.md`](docs/adr/0005-adaptery-ad.md) i `docs/roadmapa.md`.
-- **Następne etapy:** M2 — historia logowań (WEF/dzienniki, retencja, kompletność);
-  M3 — uwierzytelnianie Windows/Kerberos zamiast tokenów; M4 — akcje na stacjach.
-- MVP jest **tylko do odczytu**; zapis do AD i akcje na stacjach są poza zakresem (ADR-0003).
-- Tokeny w konfiguracji są rozwiązaniem deweloperskim i **nie mogą** trafić na produkcję.
+- **M2 (historia logowań): zaimplementowane.** Zdalny odczyt dzienników 4624/4634/4625, bufor JSONL
+  (`data/logins.jsonl`), retencja 30 dni, kompletność `partial` z notą „N z M stacji bez dostępu”
+  zamiast cichej pustej listy. Werifikacja na pilocie (Windows + *Event Log Readers*).
+- **M3 (bezpieczeństwo produkcyjne): zaimplementowane.** Windows/Kerberos (Negotiate) + grupy AD → role,
+  `wss` wymuszane przed upgrade'em (HTTP 400), nauczyciel widzi wyłącznie history swoich pracowni,
+  audyt operacji (`data/audit.jsonl`, 12 mies.), bramka startu blokująca tokeny/brak wss/mock/LDAP bez TLS.
+- **M4 (akcje): zaimplementowane.** Restart stacji (`shutdown.exe /r /m`), blokada ekranu (PsExec),
+  reset hasła (LDAPS `unicodePwd`), dodanie do grupy — wszystkie z `confirm=true` i wpisem audytowym;
+  UI ukrywa akcje bez uprawnienia, nieudana akcja pokazuje błąd źródła, nie „sukces”.
+- Tokeny w konfiguracji są rozwiązaniem deweloperskim i **nie mogą** trafić na produkcję
+  (`SecurityConfigurationValidator` zatrzymuje serwer, jeśli tak się stanie).
+- Szczegóły i stan weryfikacji: [`docs/roadmapa.md`](docs/roadmapa.md) i [`docs/uruchomienie.md`](docs/uruchomienie.md) §9.
 
 ### Dwa tryby danych
 
@@ -162,4 +170,5 @@ Szczegóły, konfiguracja i rozwiązywanie problemów: [`docs/uruchomienie.md`](
 ```
 
 Przejście na AD: `UseMockData = false` + uzupełniony `src/ZseAdmin.Server/classrooms.json`
-i sekcja `ZseAdmin:Directory`. Instrukcja krok po kroku: [`docs/uruchomienie.md`](docs/uruchomienie.md) §5a.
+(w tym `teachers` per pracownia) i sekcje `ZseAdmin:Directory`, `Security` (tryb `ActiveDirectory`).
+Instrukcja krok po kroku: [`docs/uruchomienie.md`](docs/uruchomienie.md) §5a–5c.

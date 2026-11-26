@@ -4,7 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>ZseAdmin.Server</RootNamespace>
     <AssemblyName>ZseAdmin.Server</AssemblyName>
-    <Version>0.1.0</Version>
+    <Version>0.4.0</Version>
     <UserSecretsId>zse-admin-server</UserSecretsId>
   </PropertyGroup>
 
@@ -15,6 +15,10 @@
   <ItemGroup>
     <!-- Adapter LDAP (etap M1). Pakiet dostarcza System.DirectoryServices.Protocols na każdą platformę. -->
     <PackageReference Include="System.DirectoryServices.Protocols" Version="8.0.0" />
+    <!-- Zdalny odczyt dziennika zabezpieczeń stacji (etap M2). Windows-only w runtime; obsługiwane przez OperatingSystem.IsWindows(). -->
+    <PackageReference Include="System.Diagnostics.EventLog" Version="8.0.0" />
+    <!-- Negotiate (Kerberos/NTLM) na Kestrel (etap M3). Na IIS uwierzytelnia IIS — pakiet bez zmian. -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>

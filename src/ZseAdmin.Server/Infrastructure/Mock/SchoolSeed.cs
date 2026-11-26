@@ -108,6 +108,8 @@ internal static class SchoolSeed
         {
             var computer = computers[random.Next(computers.Count)];
             var user = users[random.Next(users.Count)];
+            // Pracownia zapisana przy zdarzeniu (jak w magazynie M2) — potrzebna
+            // do ograniczenia widoczności historii dla nauczycieli (M3).
             var minutesAgo = random.Next(0, 14 * 24 * 60);
             var type = random.Next(100) switch
             {
@@ -130,7 +132,8 @@ internal static class SchoolSeed
                 ComputerName: computer.Name,
                 OccurredAtUtc: now.AddMinutes(-minutesAgo),
                 Type: type,
-                Source: source));
+                Source: source,
+                ClassroomId: computer.ClassroomId));
         }
 
         return events;

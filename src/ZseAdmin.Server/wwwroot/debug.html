@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ZSE-Admin — konsola protokołu WebSocket</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: ui-sans-serif, system-ui, "Segoe UI", sans-serif; background: #f3f4f6; color: #111827; }
+    header { background: #1f2937; color: #fff; padding: 14px 20px; }
+    header h1 { margin: 0; font-size: 17px; font-weight: 600; }
+    header p { margin: 4px 0 0; color: #9ca3af; font-size: 12px; }
+    main { display: grid; grid-template-columns: 320px 1fr; gap: 16px; padding: 16px; }
+    section { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px; }
+    h2 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: #6b7280; }
+    label { display: block; font-size: 12px; color: #374151; margin: 10px 0 4px; }
+    input, select { width: 100%; padding: 7px 9px; border: 1px solid #d1d5db; border-radius: 6px; font: inherit; font-size: 13px; }
+    button { width: 100%; margin-top: 10px; padding: 9px; border: 0; border-radius: 6px; background: #2563eb; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+    button.secondary { background: #e5e7eb; color: #111827; }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    #state { margin-top: 10px; font-size: 12px; font-weight: 600; }
+    #state.ok { color: #047857; }
+    #state.err { color: #b91c1c; }
+    #log { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12px; height: 62vh; overflow: auto; background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 12px; white-space: pre-wrap; word-break: break-word; }
+    .row { display: flex; gap: 8px; }
+    .row > div { flex: 1; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ZSE-Admin — konsola protokołu</h1>
+    <p>Ręczne wywołanie wiadomości z docs/api-websocket.md, bez uruchamiania klienta WPF.</p>
+  </header>
+
+  <main>
+    <section>
+      <h2>Połączenie</h2>
+      <label for="url">Adres WebSocket</label>
+      <input id="url" />
+      <label for="token">Token</label>
+      <input id="token" value="dev-admin-token" />
+      <div class="row">
+        <div>
+          <button id="connect">Połącz</button>
+        </div>
+        <div>
+          <button id="disconnect" class="secondary">Rozłącz</button>
+        </div>
+      </div>
+      <div id="state">bez połączenia</div>
+
+      <h2 style="margin-top:22px">Zapytania</h2>
+      <label for="classroom">Pracownia (id)</label>
+      <input id="classroom" placeholder="prac-101" />
+      <button id="classrooms" class="secondary">classrooms.list</button>
+      <button id="computers" class="secondary">computers.list</button>
+      <label for="computer">Komputer (filtr logowań)</label>
+      <input id="computer" placeholder="KS-101-01" />
+      <label for="user">Użytkownik (samAccountName)</label>
+      <input id="user" placeholder="j.kowalski" />
+      <button id="logins" class="secondary">logins.query</button>
+      <button id="userGet" class="secondary">users.get</button>
+      <button id="ping" class="secondary">ping</button>
+    </section>
+
+    <section>
+      <h2>Ruch</h2>
+      <div id="log"></div>
+    </section>
+  </main>
+
+  <script>
+    const stateEl = document.getElementById('state');
+    const logEl = document.getElementById('log');
+    const urlInput = document.getElementById('url');
+    const tokenInput = document.getElementById('token');
+
+    let socket = null;
+
+    const defaultUrl = () => {
+      const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
+      return `${scheme}://${location.host}/ws`;
+    };
+
+    urlInput.value = defaultUrl();
+
+    function log(direction, payload) {
+      const stamp = new Date().toISOString().slice(11, 23);
+      logEl.textContent += `[${stamp}] ${direction} ${JSON.stringify(payload, null, 2)}\n\n`;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function setState(text, ok) {
+      stateEl.textContent = text;
+      stateEl.className = ok ? 'ok' : 'err';
+    }
+
+    function connect() {
+      if (socket && socket.readyState <= 1) return;
+      const url = `${urlInput.value}?access_token=${encodeURIComponent(tokenInput.value.trim())}`;
+      setState('łączenie…', true);
+
+      socket = new WebSocket(url);
+      socket.onopen = () => setState('połączono', true);
+      socket.onclose = (event) => setState(`rozłączono (${event.code}) ${event.reason || ''}`, false);
+      socket.onerror = () => setState('błąd połączenia — sprawdź token i adres', false);
+      socket.onmessage = (event) => log('←', JSON.parse(event.data));
+    }
+
+    function send(type, payload) {
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        setState('najpierw połącz', false);
+        return;
+      }
+      const envelope = { type, requestId: crypto.randomUUID() };
+      if (payload !== undefined) envelope.payload = payload;
+      log('→', envelope);
+      socket.send(JSON.stringify(envelope));
+    }
+
+    document.getElementById('connect').onclick = connect;
+    document.getElementById('disconnect').onclick = () => socket && socket.close(1000, 'koniec testu');
+    document.getElementById('classrooms').onclick = () => send('classrooms.list');
+    document.getElementById('computers').onclick = () => {
+      const id = document.getElementById('classroom').value.trim();
+      send('computers.list', { classroomId: id || null, includeOffline: true });
+    };
+    document.getElementById('logins').onclick = () => send('logins.query', {
+      computerName: document.getElementById('computer').value.trim() || null,
+      userSamAccountName: document.getElementById('user').value.trim() || null,
+      take: 50
+    });
+    document.getElementById('userGet').onclick = () => {
+      const sam = document.getElementById('user').value.trim();
+      if (!sam) { setState('podaj samAccountName', false); return; }
+      send('users.get', { samAccountName: sam });
+    };
+    document.getElementById('ping').onclick = () => send('ping');
+  </script>
+</body>
+</html>

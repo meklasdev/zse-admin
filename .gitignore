@@ -1,0 +1,38 @@
+## .NET / Visual Studio
+bin/
+obj/
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+
+## Testy i pokrycie
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+coverage*.json
+coverage*.xml
+
+## Publikacja
+publish/
+artifacts/
+*.publishsettings
+
+## Narzędzia / środowisko
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+*.log
+
+## Lokalne sekrety (NIGDY nie commituj tokenów)
+appsettings.Local.json
+*.secrets.json
+.env
+.env.*

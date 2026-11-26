@@ -94,3 +94,19 @@ public sealed class LoginEventItemViewModel
 
     public string Detail { get; }
 }
+
+/// <summary>Wpis audytu operacji wyświetlany w szczegółach obiektu (M3/M4).</summary>
+public sealed class AuditEntryItemViewModel
+{
+    public AuditEntryItemViewModel(AuditEntryDto dto)
+    {
+        Headline = $"{dto.Action} · {dto.Target} · {DisplayFormat.AuditResult(dto.Result)}";
+        Detail =
+            $"{DisplayFormat.DateTime(dto.TimestampUtc)} · {dto.Actor} ({dto.Role}) · " +
+            $"przed: {dto.Before ?? DisplayFormat.Missing} → po: {dto.After ?? DisplayFormat.Missing}";
+    }
+
+    public string Headline { get; }
+
+    public string Detail { get; }
+}

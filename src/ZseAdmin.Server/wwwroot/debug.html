@@ -18,11 +18,12 @@
     input, select { width: 100%; padding: 7px 9px; border: 1px solid #d1d5db; border-radius: 6px; font: inherit; font-size: 13px; }
     button { width: 100%; margin-top: 10px; padding: 9px; border: 0; border-radius: 6px; background: #2563eb; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
     button.secondary { background: #e5e7eb; color: #111827; }
+    button.danger { background: #b45309; }
     button:disabled { opacity: .55; cursor: not-allowed; }
     #state { margin-top: 10px; font-size: 12px; font-weight: 600; }
     #state.ok { color: #047857; }
     #state.err { color: #b91c1c; }
-    #log { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12px; height: 62vh; overflow: auto; background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 12px; white-space: pre-wrap; word-break: break-word; }
+    #log { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12px; height: 70vh; overflow: auto; background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 12px; white-space: pre-wrap; word-break: break-word; }
     .row { display: flex; gap: 8px; }
     .row > div { flex: 1; }
   </style>
@@ -30,7 +31,7 @@
 <body>
   <header>
     <h1>ZSE-Admin — konsola protokołu</h1>
-    <p>Ręczne wywołanie wiadomości z docs/api-websocket.md, bez uruchamiania klienta WPF.</p>
+    <p>Ręczne wywołanie wiadomości z docs/api-websocket.md (M0–M4), bez uruchamiania klienta WPF.</p>
   </header>
 
   <main>
@@ -38,19 +39,15 @@
       <h2>Połączenie</h2>
       <label for="url">Adres WebSocket</label>
       <input id="url" />
-      <label for="token">Token</label>
+      <label for="token">Token (tylko development)</label>
       <input id="token" value="dev-admin-token" />
       <div class="row">
-        <div>
-          <button id="connect">Połącz</button>
-        </div>
-        <div>
-          <button id="disconnect" class="secondary">Rozłącz</button>
-        </div>
+        <div><button id="connect">Połącz</button></div>
+        <div><button id="disconnect" class="secondary">Rozłącz</button></div>
       </div>
       <div id="state">bez połączenia</div>
 
-      <h2 style="margin-top:22px">Zapytania</h2>
+      <h2 style="margin-top:22px">Odczyt</h2>
       <label for="classroom">Pracownia (id)</label>
       <input id="classroom" placeholder="prac-101" />
       <button id="classrooms" class="secondary">classrooms.list</button>
@@ -59,9 +56,31 @@
       <input id="computer" placeholder="KS-101-01" />
       <label for="user">Użytkownik (samAccountName)</label>
       <input id="user" placeholder="j.kowalski" />
+      <label for="loginClassroom">Pracownia (zakres logowań, M3)</label>
+      <input id="loginClassroom" placeholder="prac-101" />
       <button id="logins" class="secondary">logins.query</button>
       <button id="userGet" class="secondary">users.get</button>
       <button id="ping" class="secondary">ping</button>
+
+      <h2 style="margin-top:22px">Akcje (M4) i audyt (M3)</h2>
+      <label for="actionKind">Rodzaj akcji</label>
+      <select id="actionKind">
+        <option value="restartComputer">restartComputer</option>
+        <option value="lockComputer">lockComputer</option>
+        <option value="resetPassword">resetPassword</option>
+        <option value="addToGroup">addToGroup</option>
+      </select>
+      <label for="actionTarget">Cel (komputer albo konto)</label>
+      <input id="actionTarget" value="KS-101-01" />
+      <label for="groupName">Grupa AD (dla addToGroup)</label>
+      <input id="groupName" placeholder="Uczniowie" />
+      <button id="actionPrepare" class="secondary">action.prepare</button>
+      <label for="confirmationToken">Token potwierdzenia (uzupełniany automatycznie)</label>
+      <input id="confirmationToken" />
+      <button id="actionExecute" class="danger">action.execute (confirm)</button>
+      <label for="auditTarget">Audyt: cel (puste = wszystkie)</label>
+      <input id="auditTarget" placeholder="KS-101-01" />
+      <button id="auditQuery" class="secondary">audit.query</button>
     </section>
 
     <section>
@@ -75,6 +94,7 @@
     const logEl = document.getElementById('log');
     const urlInput = document.getElementById('url');
     const tokenInput = document.getElementById('token');
+    const confirmationInput = document.getElementById('confirmationToken');
 
     let socket = null;
 
@@ -98,14 +118,25 @@
 
     function connect() {
       if (socket && socket.readyState <= 1) return;
-      const url = `${urlInput.value}?access_token=${encodeURIComponent(tokenInput.value.trim())}`;
+      const token = tokenInput.value.trim();
+      const url = token
+        ? `${urlInput.value}?access_token=${encodeURIComponent(token)}`
+        : urlInput.value;
       setState('łączenie…', true);
 
       socket = new WebSocket(url);
       socket.onopen = () => setState('połączono', true);
       socket.onclose = (event) => setState(`rozłączono (${event.code}) ${event.reason || ''}`, false);
       socket.onerror = () => setState('błąd połączenia — sprawdź token i adres', false);
-      socket.onmessage = (event) => log('←', JSON.parse(event.data));
+      socket.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        const token = message.payload && message.payload.confirmationToken;
+        if (token) {
+          confirmationInput.value = token;
+          setState('akcja przygotowana — potwierdź', true);
+        }
+        log('←', message);
+      };
     }
 
     function send(type, payload) {
@@ -119,24 +150,42 @@
       socket.send(JSON.stringify(envelope));
     }
 
+    const value = (id) => document.getElementById(id).value.trim() || null;
+
     document.getElementById('connect').onclick = connect;
     document.getElementById('disconnect').onclick = () => socket && socket.close(1000, 'koniec testu');
     document.getElementById('classrooms').onclick = () => send('classrooms.list');
-    document.getElementById('computers').onclick = () => {
-      const id = document.getElementById('classroom').value.trim();
-      send('computers.list', { classroomId: id || null, includeOffline: true });
-    };
+    document.getElementById('computers').onclick = () =>
+      send('computers.list', { classroomId: value('classroom'), includeOffline: true });
     document.getElementById('logins').onclick = () => send('logins.query', {
-      computerName: document.getElementById('computer').value.trim() || null,
-      userSamAccountName: document.getElementById('user').value.trim() || null,
+      computerName: value('computer'),
+      userSamAccountName: value('user'),
+      classroomId: value('loginClassroom'),
       take: 50
     });
     document.getElementById('userGet').onclick = () => {
-      const sam = document.getElementById('user').value.trim();
+      const sam = value('user');
       if (!sam) { setState('podaj samAccountName', false); return; }
       send('users.get', { samAccountName: sam });
     };
     document.getElementById('ping').onclick = () => send('ping');
+    document.getElementById('actionPrepare').onclick = () => {
+      const target = value('actionTarget');
+      if (!target) { setState('podaj cel akcji', false); return; }
+      send('action.prepare', {
+        action: document.getElementById('actionKind').value,
+        target,
+        groupName: value('groupName'),
+        reason: 'test z konsoli debug'
+      });
+    };
+    document.getElementById('actionExecute').onclick = () => {
+      const confirmationToken = value('confirmationToken');
+      if (!confirmationToken) { setState('najpierw action.prepare', false); return; }
+      send('action.execute', { confirmationToken, confirm: true, reason: 'test z konsoli debug' });
+    };
+    document.getElementById('auditQuery').onclick = () =>
+      send('audit.query', { target: value('auditTarget'), take: 50 });
   </script>
 </body>
 </html>

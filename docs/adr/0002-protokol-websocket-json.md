@@ -36,3 +36,13 @@ Jedno połączenie WebSocket z tekstowymi ramkami JSON w kopercie:
 **Negatywne:** brak gwarancji dostarczenia — po reconnect trzeba pobrać pełny stan (świadoma decyzja: prostsze niż kolejka `since`); brak paginacji kursorowej; brak kompresji.
 
 **Neutralne:** rozszerzenie o subskrypcje tematyczne wymaga nowego pola (`topics`) i jest zgodne wstecz.
+
+## Rozszerzenie — M2/M3/M4 (2026-11-26)
+
+`ProtocolVersion` nadal wynosi **1**. Zgodnie z pierwotną decyzją dodano wyłącznie
+nowe typy (`event.logins.new`, `audit.query`, `action.prepare`, `action.execute`)
+i opcjonalne pola (`welcome.classroomScope`, `LoginQueryRequest.classroomId(s)`,
+`LoginEventDto.classroomId`). Nie zmieniono znaczenia, typu ani nazwy żadnego
+istniejącego pola. Uwierzytelnianie Windows/Kerberos, wymuszenie `wss`, grupy AD
+i zakres pracowni są konfiguracją serwera; format koperty `{ type, requestId, payload }`
+pozostaje bez zmian. Szczegóły: `docs/api-websocket.md` §7.1, ADR-0006..0008.

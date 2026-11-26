@@ -4,8 +4,9 @@
 
 - Klient to aplikacja desktopowa na Windows (szkoła pracuje na Windows), serwer działa na maszynie z Active Directory.
 - Komunikacja: WebSocket + JSON. Jeden kanał, wiele typów wiadomości, korelacja po `requestId`.
-- MVP jest **tylko do odczytu**. Żadna operacja zapisu do AD ani akcja na stacji nie istnieje w pierwszej wersji.
+- Etapy M0–M1 były tylko do odczytu. Od M4 istnieją **jawnie kontrolowane operacje zapisu**: każda wymaga uprawnienia, dwukrokowego potwierdzenia i wpisu audytowego. Nie ma endpointu przyjmującego dowolny zapis/ldap.
 - Dane muszą być „samo-opisujące się”: każda odpowiedź niesie źródło, czas obserwacji, kompletność i informację o starzeniu.
+- Serwer jest jedynym miejscem egzekwowania uprawnień i zakresu danych; UI jedynie ukrywa to, czego serwer i tak odmówi.
 
 ## 2. Komponenty
 
@@ -21,15 +22,19 @@
 │ Core:                       │            │           ├─ IAdDirectory                  │
 │  WsClientConnection         │            │           └─ FreshnessService              │
 │  ZseAdminApiClient          │            │                                          │
-│  MainViewModel              │            │  StatusMonitorService (BackgroundService)│
+│ MainViewModel               │            │  StatusMonitorService (BackgroundService)│
+│  └─ akcje + audyt (M4)      │            │  LoginCollectorService (M2, ≤ 2 min)    │
 └─────────────────────────────┘            │  ConnectionRegistry (broadcast)          │
-                                           │  TokenAuthenticator → ClientIdentity     │
+                                           │  LoginAccessPolicy (M3: zakres pracowni) │
+                                           │  AdminActionService + ConfirmationStore  │
+                                           │  AuditLog (12 miesięcy)                  │
+                                           │  Windows/Token Authenticator             │
                                            └──────────────────────────────────────────┘
                                                      │            │            │
                                             ┌────────┘     ┌──────┘     ┌──────┘
                                             ▼              ▼            ▼
                                      Active Directory   Stacje (ICMP/  Dzienniki
-                                     (LDAP/Win32 API)    SMB/WMI)      stacji
+                                     (LDAP + zapis)     WinRM)        stacji 4624/4634/4625
 ```
 
 | Projekt | Rola | Zależności |
@@ -44,12 +49,13 @@ Rozdzielenie `Client.Core` od `Client` jest celowe: logika jest testowalna bez W
 
 ## 3. Przepływ żądania
 
-1. Klient łączy się z `/ws` z tokenem (nagłówek `X-ZseAdmin-Token` lub `?access_token=`).
-2. Serwer uwierzytelnia, tworzy sesję i wysyła `welcome` z rolą i listą uprawnień.
-3. Klient wysyła kopertę `{ type, requestId, payload }`.
-4. `MessageRouter` sprawdza uprawnienie (`CapabilityGuard`), pyta odpowiednie źródło i dokłada metadane świeżości.
-5. Serwer odpowiada tą samą wartością `type` i tym samym `requestId`. Błąd → `type: "error"` + `ErrorDto`.
-6. Równolegle `StatusMonitorService` odświeża stan komputerów i rozgłasza `event.computer.status` do sesji z `computers.read`.
+1. Klient łączy się z `/ws` — development: token w nagłówku `X-ZseAdmin-Token` lub `?access_token=`; produkcja: Negotiate/Kerberos i `wss` (brak tokenu).
+2. `WsEndpoint` odrzuca połączenie bez `wss` (403) i bez ważnej tożsamości/grupy AD (401) **przed upgrade'em** — odmowy trafiają do audytu.
+3. Serwer tworzy sesję i wysyła `welcome` z rolą, uprawnieniami oraz `classroomScope` (zakres pracowni nauczyciela).
+4. Klient wysyła kopertę `{ type, requestId, payload }`.
+5. `MessageRouter` sprawdza uprawnienie (`CapabilityGuard`), dla `logins.query` nakłada zakres (`LoginAccessPolicy`), pyta źródło i dokłada metadane świeżości. Akcje M4 przechodzą przez `AdminActionService`.
+6. Serwer odpowiada tym samym `type`/`requestId`. Błąd → `type: "error"` + `ErrorDto`.
+7. Równolegle `StatusMonitorService` rozgłasza `event.computer.status`, a `LoginCollectorService` — `event.logins.new` (z filtrem per sesja). Po reconnect klient i tak pobiera pełny stan.
 
 ## 4. Wątki i współbieżność
 
@@ -59,15 +65,20 @@ Rozdzielenie `Client.Core` od `Client` jest celowe: logika jest testowalna bez W
 
 ## 5. Adaptery danych
 
-Stan na dziś: **M1 zaimplementowane** (ADR-0005), M2 w planie.
+Stan na dziś: **M0–M4 zaimplementowane** (ADR-0005..0008).
 
-| Interfejs | Implementacja M1 | Uwagi |
+| Interfejs | Implementacja | Uwagi |
 |---|---|---|
-| `IClassroomDirectory` | `AdClassroomDirectory` (konfiguracja + liczniki z AD) | pracownia istnieje także wtedy, gdy OU jest puste |
-| `IComputerDirectory` | `AdComputerDirectory` (AD + `IComputerStatusProbe`) | paginacja LDAP, limit `MaxComputers`, cache TTL, „poza pracownią” bez filtra |
-| `IComputerDirectory.RefreshStatusesAsync` | ICMP (`StatusProbe`) | równoległość ograniczona; brak odpowiedzi = `offline` z czasem, brak adresu = `unknown` |
-| `ILoginLog` | `MockLoginLog` (dev) / `UnavailableLoginLog` (produkcja do M2) | pusta lista nie udaje braku zdarzeń |
-| `IAdDirectory` | `AdDirectory` (LDAP `tokenGroups`) | `lastLogonTimestamp` bywa opóźniony do 14 dni |
+| `IClassroomDirectory` | `AdClassroomDirectory` / `MockClassroomDirectory` | konfiguracja + liczniki z AD |
+| `IComputerDirectory` | `AdComputerDirectory` / `MockComputerDirectory` | paginacja LDAP, limit `MaxComputers`, cache TTL, „poza pracownią” bez filtra |
+| `IComputerStatusProbe` | `StatusProbe` (ICMP) | brak odpowiedzi = `offline` z czasem, brak adresu = `unknown` |
+| `ILoginEventSource` | `RemoteSecurityEventSource`, `WefFileEventSource`, `MockLoginEventSource` | 4624/4634/4625 + status dostępności każdej stacji |
+| `ILoginLog` | `LoginHistoryBuffer` (retencja 30 dni) / `UnavailableLoginLog` | pusta lista nie udaje braku zdarzeń |
+| `IAdDirectory` | `AdDirectory` / `MockAdDirectory` | `tokenGroups`; `lastLogonTimestamp` bywa opóźniony do 14 dni |
+| `IComputerControl` | `WindowsComputerControl` / `MockComputerControl` | `shutdown.exe`, WinRM; błąd = `ActionFailedException` |
+| `IAdWriteService` | `LdapAdWriteService` / `MockAdWriteService` | `unicodePwd` + `pwdLastSet`, `member` — tylko po LDAPS |
+| `IAuditLog` | `AuditLog` | 12 miesięcy, opcjonalny JSONL, `audit.query` |
+| `ITokenAuthenticator` | `TokenAuthenticator` / `WindowsAuthenticator` | wybór przez `Security:Mode` |
 
 Porty pomocnicze: `ILdapDirectoryReader` (jedyna warstwa znająca LDAP), `IAdInventoryReader`
 (wykrywanie komputerów/kont), `IComputerStatusProbe` (sieć). Dzięki temu całą interpretację
@@ -80,8 +91,10 @@ ZseAdmin:UseMockData = true   → Mock* (development, CI, brak domeny)
 ZseAdmin:UseMockData = false  → LDAP + ICMP; wymaga poprawnych classrooms.json i Directory:*
 ```
 
-Tryb przejściowy M1.5: `UseMockData=false` + `UseMockDataForLogins=true` — prawdziwe AD,
-przykładowe logowania, żeby dopracować UI przed M2.
+Historia logowań ma własne źródło (M2): w trybie `UseMockData=true` zawsze `Mock`,
+w produkcji `WindowsEventLog` albo `WefFile`. `LoginHistory:Enabled=false` to tryb awaryjny
+z jawną odpowiedzią `unavailable`. Produkcja (`appsettings.Production.json`) wymaga
+`Security:Mode=Windows`, `RequireSecureTransport=true`, LDAPS i realnego źródła.
 
 ### 5.2 Zachowanie przy błędach źródła
 
@@ -92,6 +105,9 @@ przykładowe logowania, żeby dopracować UI przed M2.
 | Brak adresu do sprawdzenia | `status = unknown`, poprzednia obserwacja zachowana |
 | Inwentarz obcięty limitem | `completeness = partial` + nota z liczbami |
 | Brak `classrooms.json` lub kolizja OU | serwer **nie startuje**, błąd na stderr + kod wyjścia 1 |
+| Część stacji bez dostępu do dziennika | `completeness = partial` + nota z liczbą stacji |
+| Niebezpieczna konfiguracja produkcyjna | serwer **nie startuje** (`ProductionConfigurationGuard`) |
+| Akcja odrzucona przez stację/AD | `error: upstreamUnavailable` + wpis audytu `failed` |
 
 Zasada: **adapter nie ukrywa problemów źródła**. Jeśli nie ma dostępu do dziennika stacji, zwraca `Unavailable` z powodem, a nie pustą listę udającą „nikt się nie logował”.
 
@@ -135,6 +151,8 @@ Testy: `tests/ZseAdmin.Tests/ClassroomMapTests.cs`.
 | Źródło danych nieosiągalne | odpowiedź z `Completeness = Unavailable` lub błąd `UpstreamUnavailable` | komunikat o źródle, nie „pusto” |
 | Dane starsze niż próg | `isStale = true` + nota | żółty pasek „dane z 10:42” |
 | Brak uprawnienia | `error: Forbidden` | akcja nie jest pokazywana jako wykonalna |
+| Nauczyciel poza swoją pracownią | `error: Forbidden` | `welcome.classroomScope` zawęża listę pracowni |
+| Awaria akcji M4 | `error: UpstreamUnavailable` ze źródłem | komunikat z `detail`, wpis audytu `failed` |
 | Zerwanie w trakcie żądania | klient dostaje wyjątek transportu | retry po ponownym połączeniu, bez cichego „sukcesu” |
 
 ## 8. Wdrożenie
@@ -150,13 +168,14 @@ Testy: `tests/ZseAdmin.Tests/ClassroomMapTests.cs`.
 - Włączone „WebSocket Protocol” w funkcjach IIS, aplikacja jako podrzędna witryna, binding HTTPS.
 - Za reverse proxy trzeba przekazać nagłówek autoryzacji i włączyć `wss`.
 
-**Bezpieczeństwo transportu:** w produkcji wyłącznie `wss` + certyfikat wewnętrzny. Tokeny MVP są rozwiązaniem deweloperskim — patrz `docs/uprawnienia-i-dane-osobowe.md`.
+**Bezpieczeństwo transportu i tożsamości (M3):** w produkcji wyłącznie `wss` + certyfikat wewnętrzny, `Security:Mode = Windows` (Negotiate/Kerberos lub Windows Auth z IIS), role z grup AD, brak tokenów. `ProductionConfigurationGuard` zatrzymuje serwer przy błędnej konfiguracji. Patrz `docs/uprawnienia-i-dane-osobowe.md` i ADR-0007.
 
 ## 9. Obserwowalność
 
-- `/healthz` zwraca status, czas serwera, liczbę aktywnych sesji i informację, czy działa na danych przykładowych.
-- Logi strukturalne: identyfikator sesji, użytkownik, rola, odrzucone wiadomości z kodem błędu.
-- Docelowo: licznik czasu odpowiedzi źródeł i liczba stacji bez dostępu — to jedyne metryki, które realnie ostrzegą przed „cichą” utratą danych.
+- `/healthz` zwraca status, czas serwera, liczbę sesji, tryb danych, tryb uwierzytelniania, źródło/interwał/retencję/liczbę zdarzeń bufora, stacje, audyt i akcje.
+- Logi strukturalne: identyfikator sesji, użytkownik, rola, odrzucone wiadomości z kodem błędu, cykle kolektora logowań.
+- Rejestr audytu (`audit.query`): aktor, rola, uprawnienie, cel, przed/po, wynik, adres IP — dla zmian M4 i odmów uwierzytelnienia/transportu.
+- Docelowo (M5): licznik czasu odpowiedzi źródeł i alert na liczbę stacji bez dostępu do dziennika.
 
 ## 10. Punkty rozszerzeń
 

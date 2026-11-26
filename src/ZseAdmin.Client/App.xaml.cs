@@ -27,7 +27,23 @@ public partial class App : Application
             return;
         }
 
-        _connection = new WsClientConnection(endpoint, settings.Token);
+        // M3: produkcja = Negotiate/Kerberos (brak tokenu, UseDefaultCredentials w kliencie WS).
+        if (settings.UseWindowsAuth &&
+            !string.Equals(endpoint.Scheme, "wss", StringComparison.OrdinalIgnoreCase))
+        {
+            MessageBox.Show(
+                "Uwierzytelnianie Windows wymaga adresu wss:// (HTTPS). " +
+                "Połączenie ws:// zostałoby odrzucone przez serwer produkcyjny.",
+                "ZSE-Admin",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+
+            Shutdown(1);
+            return;
+        }
+
+        var token = settings.UseWindowsAuth ? null : settings.Token;
+        _connection = new WsClientConnection(endpoint, token);
         var api = new ZseAdminApiClient(_connection);
         var dispatcher = new DispatcherAdapter(Dispatcher);
 

@@ -26,4 +26,6 @@ Write-Host "  sc.exe create ZseAdmin binPath= `"$env:ProgramFiles\dotnet\dotnet.
 Write-Host "  sc.exe description ZseAdmin `"ZSE-Admin — serwer WebSocket dla pracowni`""
 Write-Host "  sc.exe start ZseAdmin"
 Write-Host ""
-Write-Host "Pamiętaj o konfiguracji Security:Tokens oraz o tym, że tokeny nie są rozwiązaniem produkcyjnym."
+Write-Host "Przed startem ustaw ASPNETCORE_ENVIRONMENT=Production (bramka M3 odrzuci tokeny, ws:// i dane przykładowe)." -ForegroundColor Yellow
+Write-Host "Sekret konta usługi przekaż zmienną środowiskową lub magazynem sekretów — nie wpisuj go do appsettings.json."
+Write-Host "Klienta produkcyjnego publikuj przez ./scripts/publish-client.ps1 (wss + Windows Auth, bez tokenu)."

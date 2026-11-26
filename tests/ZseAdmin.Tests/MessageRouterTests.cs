@@ -180,20 +180,8 @@ public sealed class MessageRouterTests
 
     private static MessageRouter CreateRouter(
         IAdDirectory? users = null,
-        ILoginLog? logins = null)
-    {
-        var clock = new FakeClock(Now);
-        var options = new ZseAdminOptions();
-
-        return new MessageRouter(
-            new MockClassroomDirectory(clock),
-            new MockComputerDirectory(clock),
-            logins ?? new MockLoginLog(clock),
-            users ?? new MockAdDirectory(clock),
-            new FreshnessService(clock),
-            options,
-            clock);
-    }
+        ILoginLog? logins = null) =>
+        TestRouterFactory.Create(new FakeClock(Now), logins: logins, users: users);
 
     private sealed class UnavailableAdDirectory : IAdDirectory
     {

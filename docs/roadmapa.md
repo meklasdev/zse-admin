@@ -39,44 +39,74 @@ Każdy etap ma kryteria akceptacji w formacie Given/When/Then — bez nich nie d
 - Gdy inwentarz przekroczy `Directory:MaxComputers`, to odpowiedź ma `completeness = partial` i notę z liczbą komputerów. ✔
 
 **Poza zakresem M1 (świadomie):** adres IP stacji (wymaga WMI/ARP/DNS — etap M1.1),
-odczyt `dNSHostName`, historia logowań (M2). W trybie produkcyjnym `logins.query` zwraca
-wtedy `unavailable` z powodem, chyba że włączono `UseMockDataForLogins`.
+odczyt `dNSHostName`, historia logowań (M2). Wtedy `logins.query` zwracało
+`unavailable` z powodem, chyba że włączono przejściowy `UseMockDataForLogins`.
+Od M2 historia ma własne źródło; przełącznik M1.5 w produkcji jest blokowany przez bramkę M3.
 
 **Ryzyka:** uprawnienia konta usługi, opóźnienie `lastLogonTimestamp`, rozmiar odpowiedzi LDAP.
 
-## M2 — Historia logowań
+## M2 — Historia logowań — zrobione
 
-**Zakres:** zbieranie zdarzeń 4624/4634/4625 (WEF lub odczyt zdalny), bufor lokalny, filtry komputer/użytkownik/czas, kompletność i zakres, retencja 30 dni.
+**Zakres:** zbieranie zdarzeń 4624/4634/4625 (WEF lub odczyt zdalny), bufor lokalny, filtry komputer/użytkownik/czas, kompletność i zakres, retencja 30 dni. Decyzje: [`docs/adr/0006-historia-logowan-bufor-i-retencja.md`](adr/0006-historia-logowan-bufor-i-retencja.md).
 
-**Kryteria akceptacji:**
-
-- Gdy uczeń zaloguje się na stacji, to zdarzenie jest widoczne w aplikacji w ciągu 2 minut.
-- Gdy 2 z 6 stacji nie mają dostępu do dziennika, to odpowiedź ma `completeness = partial` i notę z liczbą stacji.
-- Gdy pytam o zakres poza retencją, to widzę jawny komunikat o zakresie, nie pustą listę bez wyjaśnienia.
-- Gdy minie 30 dni, to zdarzenia są usuwane (test na podstawie znaczników czasu).
-
-**Ryzyka:** przewijanie dzienników, obciążenie stacji, RODO (podstawa prawna, DPIA).
-
-## M3 — Bezpieczeństwo produkcyjne
-
-**Zakres:** uwierzytelnianie Windows/Kerberos lub mapowanie grup AD, `wss`, ograniczenie widoczności historii dla nauczycieli, audyt operacji, minimalne prawa konta usługi.
+| Element | Gdzie |
+|---|---|
+| Port źródła + status stacji | `Abstractions/LoginSources.cs` |
+| Bufor: deduplikacja, filtry, retencja, kompletność | `Infrastructure/Logins/LoginHistoryBuffer.cs` |
+| Kolektor (pierwszy odczyt od razu, potem ≤ 120 s) + push | `Infrastructure/Logins/LoginCollectorService.cs` |
+| Zdalny dziennik Security (EventLogReader/XPath) | `Infrastructure/Logins/RemoteSecurityEventSource.cs` |
+| Wariant WEF (`*.jsonl` + `stations.json`) | `Infrastructure/Logins/WefFileEventSource.cs` |
+| Źródło dev (2 z 6 stacji niedostępnych) | `Infrastructure/Logins/MockLoginEventSource.cs` |
 
 **Kryteria akceptacji:**
 
-- Gdy użytkownik nie należy do grupy `ZSE-Admin-Nauczyciele`, to nie może się połączyć.
-- Gdy nauczyciel prosi o logowania z pracowni, w której nie ma zajęć, to dostaje `forbidden`.
-- Gdy zmieniono dane (etap M4), to w audycie jest wpis z aktorem, celem i wartością przed/po.
-- Tokeny z `appsettings.json` są wyłączone, a połączenie bez `wss` odrzucone.
+- ✔ Nowe logowanie widać bez odświeżania: kolektor odpytuje co 60 s (twardy limit 120 s, `ClampInterval`), a `event.logins.new` trafia do klienta; test `Nowe_logowanie_jest_widoczne_po_jednym_cyklu_ingestu` + `Kolektor_gwarantuje_odczyt_nie_rzadziej_niz_co_2_minuty`.
+- ✔ 2 z 6 stacji bez dziennika → `completeness = partial` i nota „Brak dostępu do dziennika na 2 z 6 stacji: …”; test `Dwie_z_szesciu_stacji_niedostepnych_daja_partial_z_liczba_stacji`.
+- ✔ Zakres przed retencją → `partial` + nota z początkiem retencji, nie pusta lista; test `Zakres_przed_retencja_ma_jawny_komunikat_a_nie_pusta_liste_bez_note`.
+- ✔ Po 30 dniach zdarzenia są fizycznie usuwane z bufora (zegar testowy + 31 dni); test `Po_30_dniach_zdarzenia_zostaja_fizycznie_usuniete`.
 
-## M4 — Akcje na stacjach i zapis do AD
+**Ryzyka:** przewijanie dzienników, obciążenie stacji, RODO (podstawa prawna, DPIA) — pozostają do M5.
 
-**Zakres:** restart/blokada stacji, reset hasła, dodanie do grupy — każde z potwierdzeniem i audytem.
+## M3 — Bezpieczeństwo produkcyjne — zrobione
+
+**Zakres:** uwierzytelnianie Windows/Kerberos z mapowaniem grup AD, `wss`, ograniczenie widoczności historii dla nauczycieli, audyt operacji, minimalne prawa konta usługi. Decyzje: [`docs/adr/0007-uwierzytelnianie-windows-i-zakres-nauczyciela.md`](adr/0007-uwierzytelnianie-windows-i-zakres-nauczyciela.md).
+
+| Element | Gdzie |
+|---|---|
+| Tożsamość z grup AD, odmowa 401 bez grupy | `Security/WindowsAuthenticator.cs`, `WindowsGroupProvider.cs`, `RoleCatalog.RoleFromGroups` |
+| Egzekwowanie `wss` przed upgrade'em | `Security/TransportSecurityGuard.cs`, `Realtime/WsEndpoint.cs`, `UseForwardedHeaders` |
+| Bramka produkcyjna (fail-fast, czyszczenie tokenów) | `Configuration/ProductionConfigurationGuard.cs`, `appsettings.Production.json` |
+| Zakres nauczyciela (plan lekcji + przypisania) | `Security/TeacherClassroomAccess.cs`, `LoginAccessPolicy.cs` |
+| Rejestr audytu (12 miesięcy, opcjonalny JSONL) | `Infrastructure/Audit/AuditLog.cs`, `audit.query` |
+| Klient bez tokenu: `wss` + Kerberos | `src/ZseAdmin.Client/appsettings.Production.json`, `scripts/publish-client.ps1`, kontrola artefaktu w CI |
 
 **Kryteria akceptacji:**
 
-- Gdy rola nie ma `computers.control`, to akcja jest niewidoczna w UI i odrzucona serwerowo.
-- Gdy akcja się nie powiedzie, to UI pokazuje błąd źródła, a nie „sukces”.
-- Każda zmiana ma wpis audytowy i jest widoczna w szczegółach obiektu.
+- ✔ Użytkownik bez grup `ZSE-Admin-*` (w tym `ZSE-Admin-Nauczyciele`) nie łączy się; test `Uzytkownik_bez_grupy_ZSE_Admin_Nauczyciele_nie_moze_sie_polaczyc`.
+- ✔ Nauczyciel proszący o logowania z obcej pracowni dostaje `forbidden` (także przy filtrze po komputerze i dla push); testy w `TeacherScopeTests.cs`.
+- ✔ Każda zmiana M4 ma wpis z aktorem, celem, `before`/`after` (hasła maskowane); test `Kazda_zmiana_ma_wpis_audytowy_z_aktorem_celem_przed_i_po`.
+- ✔ Produkcja startuje tylko z `Mode = Windows`, bez tokenów, z `RequireSecureTransport = true`, LDAPS i realnym źródłem logowań; odmowy bez `wss` → 403. Testy `Produkcja_startuje_tylko_z_bezpieczna_konfiguracja`, `Polaczenie_bez_wss_jest_odrzucone_przed_upgradem` oraz kontrola CI.
+
+## M4 — Akcje na stacjach i zapis do AD — zrobione
+
+**Zakres:** restart/blokada stacji, reset hasła, dodanie do grupy — każde z potwierdzeniem i audytem. Decyzje: [`docs/adr/0008-akcje-potwierdzenie-i-audyt.md`](adr/0008-akcje-potwierdzenie-i-audyt.md).
+
+| Element | Gdzie |
+|---|---|
+| Protokół dwóch kroków + DTO | `Contracts/Protocol/{MessageTypes,Requests,Responses}.cs` |
+| Jednorazowe potwierdzenie (aktor, czas, cel) | `Services/ConfirmationStore.cs` |
+| Orkiestracja, uprawnienia, audyt sukcesu/porażki | `Services/AdminActionService.cs`, `Realtime/MessageRouter.cs` |
+| Stacje: `shutdown.exe` / WinRM | `Infrastructure/Windows/{WindowsComputerControl,ProcessRunner}.cs` |
+| Zapis AD: `unicodePwd`, `member` po LDAPS | `Infrastructure/Ldap/{LdapDirectoryWriter,LdapAdWriteService}.cs` |
+| UI: akcje tylko dla uprawnionych + audyt obiektu | `src/ZseAdmin.Client/MainWindow.xaml`, `Client.Core/ViewModels/MainViewModel.cs` |
+
+**Kryteria akceptacji:**
+
+- ✔ Rola bez `computers.control` nie widzi przycisków (`welcome.capabilities` → `CanControlComputers`) i dostaje `forbidden` z `MessageRouter`; test `Rola_bez_computers_control_jest_odrzucona_serwerowo`.
+- ✔ Awaria źródła → `error: upstreamUnavailable` ze szczegółem, wpis audytu `failed`, UI pokazuje błąd z `detail` (bez „sukces”); test `Niepowodzenie_akcji_to_upstream_unavailable_z_nazwa_zrodla_i_wpisem_o_porazce`.
+- ✔ Każda zmiana ma wpis audytowy widoczny w `audit.query` i zakładce „Akcje i audyt” w szczegółach wybranego komputera/konta; `ActionExecuteResponse.AuditId` wskazuje ten wpis.
+
+**Poza zakresem (M5):** pilotaż na kontrolerze domeny, DPIA, certyfikaty, firewall, szkolenie.
 
 ## M5 — Wdrożenie
 
@@ -90,13 +120,22 @@ wtedy `unavailable` z powodem, chyba że włączono `UseMockDataForLogins`.
 
 ## Backlog decyzji (z README, sekcja „Co doprecyzować”)
 
-| Decyzja | Etap | Właściciel |
-|---|---|---|
-| Definicja pracowni i mapowanie OU | M1 | administrator IT |
-| Źródło i retencja logów | M2 | administrator IT + DPO |
-| Typy logowań i aktywne sesje | M2 | dyrekcja |
-| Częstotliwość stanu i próg offline | M1 | administrator IT |
-| Role i widoczność danych | M3 | dyrekcja + DPO |
-| Sposób sygnalizowania reconnectu | M0 (zrobione) | — |
-| Ograniczenie retencji i widoczności historii | M2/M3 | DPO |
-| Skala: liczba stacji i klientów | M1 | administrator IT |
+| Decyzja | Etap | Właściciel | Stan |
+|---|---|---|---|
+| Definicja pracowni i mapowanie OU | M1 | administrator IT | zrobione |
+| Źródło i retencja logów | M2 | administrator IT + DPO | domyślne: odczyt zdalny / WEF, 30 dni — do potwierdzenia w M5 |
+| Typy logowań i aktywne sesje | M2 | dyrekcja | 4624/4634/4625, model zdarzeniowy (bez aktywnych sesji) |
+| Częstotliwość stanu i próg offline | M1 | administrator IT | zrobione |
+| Role i widoczność danych | M3 | dyrekcja + DPO | grupy AD + zakres pracowni nauczyciela |
+| Sposób sygnalizowania reconnectu | M0 (zrobione) | — | zrobione |
+| Ograniczenie retencji i widoczności historii | M2/M3 | DPO | mechanizmy gotowe; klauzula/DPIA przed wdrożeniem |
+| Skala: liczba stacji i klientów | M1 | administrator IT | zrobione |
+
+## Weryfikacja M2/M3/M4
+
+Implementacja jest sprawdzana przez CI [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
+na `windows-latest`: `dotnet restore`, `dotnet build -c Release`, `dotnet test`
+(w tym testy kryteriów M2/M3/M4), `dotnet publish` serwera i klienta oraz kontrolę
+artefaktów (`classrooms.json`, `appsettings.Production.json`, bezpieczny `appsettings.json`
+klienta). Ostatni przebieg dla tej gałęzi: zielony. W środowisku bez .NET SDK nie wykonano
+lokalnej kompilacji — wiążący jest wynik GitHub Actions.

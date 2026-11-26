@@ -3,15 +3,28 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              ShutdownMode="OnMainWindowClose">
     <Application.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+
         <Style TargetType="TextBlock" x:Key="SectionTitle">
             <Setter Property="FontSize" Value="13" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Foreground" Value="#374151" />
             <Setter Property="Margin" Value="0,0,0,8" />
         </Style>
+        <Style TargetType="TextBlock" x:Key="Hint">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="#6B7280" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
         <Style TargetType="Button">
             <Setter Property="Padding" Value="14,5" />
             <Setter Property="MinWidth" Value="90" />
+            <Setter Property="Margin" Value="0,4,6,0" />
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="Margin" Value="0,2,0,6" />
+            <Setter Property="FontSize" Value="12" />
         </Style>
     </Application.Resources>
 </Application>

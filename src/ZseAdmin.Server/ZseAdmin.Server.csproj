@@ -12,4 +12,16 @@
     <ProjectReference Include="..\ZseAdmin.Contracts\ZseAdmin.Contracts.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Adapter LDAP (etap M1). Pakiet dostarcza System.DirectoryServices.Protocols na każdą platformę. -->
+    <PackageReference Include="System.DirectoryServices.Protocols" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Definicja pracowni jest konfiguracją, nie kodem: plik trafia do katalogu publikacji. -->
+    <None Update="classrooms.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

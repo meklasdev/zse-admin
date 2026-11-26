@@ -3,7 +3,7 @@ using ZseAdmin.Server.Abstractions;
 
 namespace ZseAdmin.Server.Infrastructure.Mock;
 
-/// <summary>Pracownie z konfiguracji/AD (MVP: dane przykładowe).</summary>
+/// <summary>Pracownie z konfiguracji/AD (dane przykładowe — bez LDAP).</summary>
 public sealed class MockClassroomDirectory : IClassroomDirectory
 {
     private readonly IClock _clock;

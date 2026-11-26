@@ -62,4 +62,17 @@ public sealed class FreshnessServiceTests
         Assert.False(result.IsStale);
         Assert.Equal("2 z 6 stacji bez dostępu.", result.Note);
     }
+
+    [Fact]
+    public void Nieaktualne_dane_nie_udaja_kompletnych()
+    {
+        var clock = new FakeClock(Now);
+        var service = new FreshnessService(clock);
+
+        var result = service.Create("test", QueryMetadata.Complete(Now.AddHours(-1)), TimeSpan.FromMinutes(2));
+
+        Assert.True(result.IsStale);
+        Assert.Equal(DataCompleteness.Partial, result.Completeness);
+        Assert.NotNull(result.Note);
+    }
 }

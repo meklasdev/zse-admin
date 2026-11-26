@@ -1,0 +1,23 @@
+[
+  {
+    "id": "prac-101",
+    "name": "Pracownia 101",
+    "ous": [
+      "OU=PRAC101,OU=Pracownie,DC=zse,DC=local"
+    ]
+  },
+  {
+    "id": "prac-102",
+    "name": "Pracownia 102",
+    "ous": [
+      "OU=PRAC102,OU=Pracownie,DC=zse,DC=local"
+    ]
+  },
+  {
+    "id": "prac-205",
+    "name": "Pracownia 205",
+    "ous": [
+      "OU=PRAC205,OU=Pracownie,DC=zse,DC=local"
+    ]
+  }
+]

@@ -13,11 +13,16 @@ public sealed class MockLoginLog : ILoginLog
     private readonly IClock _clock;
     private readonly IReadOnlyList<LoginEventDto> _events;
 
+    private static readonly TimeSpan RetentionWindow = TimeSpan.FromDays(14);
+
     public MockLoginLog(IClock clock)
     {
         _clock = clock;
         _events = SchoolSeed.Logins(clock.UtcNow);
     }
+
+    /// <summary>Dane przykładowe pokrywają ostatnie 14 dni — jak większość przewijanych dzienników.</summary>
+    public DateTimeOffset? RetentionStartUtc => _clock.UtcNow - RetentionWindow;
 
     public Task<LoginQueryResult> QueryAsync(LoginQueryRequest query, CancellationToken cancellationToken = default)
     {
@@ -55,7 +60,10 @@ public sealed class MockLoginLog : ILoginLog
 
         // MVP: źródło zwraca komplet danych z ostatnich 14 dni, ale nie gwarantuje
         // pełnej retencji dzienników — dlatego oznaczamy zakres jako częściowy.
-        var metadata = new QueryMetadata(now, DataCompleteness.Partial, "Źródło pokrywa ostatnie 14 dni.");
+        var metadata = new QueryMetadata(
+            now,
+            DataCompleteness.Partial,
+            $"Źródło pokrywa ostatnie {RetentionWindow.TotalDays:0} dni.");
 
         return Task.FromResult(new LoginQueryResult(page, materialized.Count, metadata));
     }

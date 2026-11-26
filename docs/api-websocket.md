@@ -201,8 +201,22 @@ Serializacja: camelCase, enumy jako stringi camelCase (`"online"`, `"logon"`, `"
 | `unauthorized` | brak/zły token | nie ponawiać w pętli; poprosić o konfigurację |
 | `forbidden` | rola bez uprawnienia | ukryć akcję w UI |
 | `notFound` | brak zasobu (np. konto) | pusty stan z komunikatem |
-| `upstreamUnavailable` | źródło (AD, dziennik) nieosiągalne | pokazać „dane niedostępne”, pozwolić na ponowienie |
+| `upstreamUnavailable` | źródło (AD, LDAP, dziennik) nieosiągalne; `detail` ma komunikat źródła | pokazać „dane niedostępne” + źródło, pozwolić na ponowienie — **nie** pokazywać pustej listy |
 | `internal` | błąd serwera | komunikat + ponowienie za chwilę |
+
+### 5.1 Brak danych a błąd (etap M1)
+
+| Sytuacja | Co dostaje klient |
+|---|---|
+| AD nieosiągalne (bind/search poległ) | `error: upstreamUnavailable`, `detail` z komunikatem LDAP |
+| Konto nie istnieje | `error: notFound` |
+| Inwentarz obcięty limitem `MaxComputers` | poprawna lista + `freshness.completeness = partial` i nota z liczbami |
+| Stan nie był jeszcze sprawdzony (brak adresu/timeout pingu) | lista z `status = unknown`, `freshness.completeness = unavailable` |
+| Historia logowań przed etapem M2 | `logins.query` z pustą listą, ale `completeness = unavailable` i nota „etap M2” |
+| Zakres zapytania przed retencją | `completeness = partial` + nota z początkiem retencji |
+
+Zasada: **pusty wynik nigdy nie jest jedyną informacją** — zawsze towarzyszy mu
+`freshness` mówiące, czy źródło w ogóle odpowiedziało.
 
 ## 6. Reconnect i resynchronizacja
 

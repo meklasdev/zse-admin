@@ -57,6 +57,26 @@ public sealed class MessageRouter
         ClientIdentity identity,
         CancellationToken cancellationToken = default)
     {
+        try
+        {
+            return await HandleCoreAsync(request, identity, cancellationToken).ConfigureAwait(false);
+        }
+        catch (SourceUnavailableException ex)
+        {
+            // Źródło nieosiągalne to nie „pusto”. Klient dostaje błąd z nazwą źródła,
+            // więc może zaproponować ponowienie — patrz docs/model-danych.md §4.
+            throw new ProtocolException(
+                ErrorCode.UpstreamUnavailable,
+                $"Źródło danych niedostępne ({ex.Source}): {ex.Message}",
+                ex.Message);
+        }
+    }
+
+    private async Task<WsEnvelope> HandleCoreAsync(
+        WsEnvelope request,
+        ClientIdentity identity,
+        CancellationToken cancellationToken)
+    {
         if (string.IsNullOrWhiteSpace(request.Type))
         {
             throw new ProtocolException(ErrorCode.InvalidRequest, "Pole 'type' jest wymagane.");
@@ -78,6 +98,12 @@ public sealed class MessageRouter
 
             case MessageTypes.UsersGet:
                 return await HandleUsersAsync(request, identity, cancellationToken);
+
+            case MessageTypes.Welcome:
+                // Powitanie wysyła wyłącznie serwer po połączeniu; żądanie od klienta to błąd protokołu.
+                throw new ProtocolException(
+                    ErrorCode.InvalidRequest,
+                    "Typ 'welcome' jest zarezerwowany dla serwera.");
 
             default:
                 throw new ProtocolException(
@@ -142,6 +168,25 @@ public sealed class MessageRouter
             "Dzienniki zabezpieczeń stacji",
             result.Metadata,
             TimeSpan.FromSeconds(_options.Freshness.LoginsSeconds));
+
+        // Pytanie o zakres poza retencją nie może wyglądać jak „nikt się nie logował”.
+        if (query.FromUtc is { } from &&
+            _logins.RetentionStartUtc is { } retentionStart &&
+            from < retentionStart)
+        {
+            var rangeNote =
+                $"Żądany zakres zaczyna się przed retencją historii (od {retentionStart:yyyy-MM-dd HH:mm} UTC).";
+
+            freshness = freshness with
+            {
+                Completeness = freshness.Completeness == DataCompleteness.Unavailable
+                    ? DataCompleteness.Unavailable
+                    : DataCompleteness.Partial,
+                Note = freshness.Note is { Length: > 0 } existing
+                    ? $"{rangeNote} {existing}"
+                    : rangeNote
+            };
+        }
 
         return WsEnvelope.Create(request.Type, request.RequestId, new LoginsResponse(result.Items, result.TotalMatched, freshness));
     }

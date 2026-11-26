@@ -1,8 +1,8 @@
 # ZSE-Admin
 
-Repozytorium zawiera **ocenę specyfikacji** (`docs/ocena.md`) oraz **działający szkielet**
-aplikacji: serwer WebSocket na .NET 8 z danymi przykładowymi i klient WPF.
-Specyfikacja produktu (poniżej) pozostaje źródłem wymagań.
+Repozytorium zawiera **ocenę specyfikacji** (`docs/ocena.md`) oraz **działającą aplikację**:
+serwer WebSocket na .NET 8 (dane przykładowe albo prawdziwe Active Directory przez LDAP)
+i klient WPF. Specyfikacja produktu (poniżej) pozostaje źródłem wymagań.
 
 | Chcesz… | Zajrzyj do |
 |---|---|
@@ -116,7 +116,8 @@ przypadki błędów, zanim zostanie zaprojektowana nawigacja i szczegóły widok
 │   └── adr/                     decyzje architektoniczne z alternatywami
 ├── src/
 │   ├── ZseAdmin.Contracts/      DTO i protokół (wspólne dla serwera i klienta)
-│   ├── ZseAdmin.Server/         ASP.NET Core: WebSocket /ws, routing, uprawnienia, dane przykładowe
+│   ├── ZseAdmin.Server/         ASP.NET Core: WebSocket /ws, routing, uprawnienia, AD/LDAP
+│   │   ├── classrooms.json      definicja pracowni i mapowanie OU (konfiguracja, nie kod)
 │   │   └── wwwroot/debug.html   konsola protokołu do testów ręcznych
 │   ├── ZseAdmin.Client.Core/    klient WS, API typowane, ViewModele (bez WPF)
 │   └── ZseAdmin.Client/         aplikacja WPF (XAML)
@@ -140,6 +141,25 @@ Szczegóły, konfiguracja i rozwiązywanie problemów: [`docs/uruchomienie.md`](
 ## Status
 
 - **M0 (szkielet): gotowe.** Protokół, serwer, klient, testy, CI, dokumentacja.
-- Dane pochodzą z deterministycznych danych przykładowych — prawdziwe AD, stacje i dzienniki to etapy M1–M2.
+- **M1 (prawdziwe AD): gotowe.** Adapter LDAP (`System.DirectoryServices.Protocols`), `classrooms.json`
+  z walidacją przy starcie, mapowanie OU → pracownia („poza pracownią” zamiast znikania),
+  komputery i konta z AD, grupy przez `tokenGroups` jednym zapytaniem, sprawdzanie dostępności
+  stacji (ICMP), limity i cache, `upstreamUnavailable` zamiast pustych list. Szczegóły:
+  [`docs/adr/0005-adaptery-ad.md`](docs/adr/0005-adaptery-ad.md) i `docs/roadmapa.md`.
+- **Następne etapy:** M2 — historia logowań (WEF/dzienniki, retencja, kompletność);
+  M3 — uwierzytelnianie Windows/Kerberos zamiast tokenów; M4 — akcje na stacjach.
 - MVP jest **tylko do odczytu**; zapis do AD i akcje na stacjach są poza zakresem (ADR-0003).
 - Tokeny w konfiguracji są rozwiązaniem deweloperskim i **nie mogą** trafić na produkcję.
+
+### Dwa tryby danych
+
+```jsonc
+// appsettings.json
+"ZseAdmin": {
+  "UseMockData": true,          // development/CI: dane przykładowe, bez domeny
+  "UseMockDataForLogins": true  // tryb przejściowy M1.5: prawdziwe AD, logowania z makiety
+}
+```
+
+Przejście na AD: `UseMockData = false` + uzupełniony `src/ZseAdmin.Server/classrooms.json`
+i sekcja `ZseAdmin:Directory`. Instrukcja krok po kroku: [`docs/uruchomienie.md`](docs/uruchomienie.md) §5a.

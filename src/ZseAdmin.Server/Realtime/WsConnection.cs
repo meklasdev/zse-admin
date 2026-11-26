@@ -180,7 +180,7 @@ public sealed class WsConnection
                 ex.Message);
 
             await SendAsync(
-                WsEnvelope.Create(MessageTypes.Error, envelope.RequestId, new ErrorDto(ex.Code, ex.Message)),
+                WsEnvelope.Create(MessageTypes.Error, envelope.RequestId, new ErrorDto(ex.Code, ex.Message, ex.Detail)),
                 cancellationToken);
         }
         catch (OperationCanceledException)

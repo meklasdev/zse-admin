@@ -67,7 +67,7 @@ public sealed class MessageRouter
             // więc może zaproponować ponowienie — patrz docs/model-danych.md §4.
             throw new ProtocolException(
                 ErrorCode.UpstreamUnavailable,
-                $"Źródło danych niedostępne ({ex.Source}): {ex.Message}",
+                $"Źródło danych niedostępne ({ex.SourceName}): {ex.Message}",
                 ex.Message);
         }
     }

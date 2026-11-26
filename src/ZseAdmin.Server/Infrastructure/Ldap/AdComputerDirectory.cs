@@ -67,13 +67,23 @@ public sealed class AdComputerDirectory : IComputerDirectory
             .DefaultIfEmpty()
             .Max();
 
-        var metadata = inventory.Truncated
-            ? QueryMetadata.Partial(
-                observedAt,
-                $"Wyczytano {inventory.Computers.Count} z {inventory.TotalComputers} komputerów — podnieś ZseAdmin:Directory:MaxComputers.")
-            : observedAt is null
-                ? QueryMetadata.Unavailable("Nie sprawdzono jeszcze stanu żadnej stacji (brak odpowiedzi lub brak adresu).")
-                : new QueryMetadata(observedAt, DataCompleteness.Complete, null);
+        QueryMetadata metadata;
+        if (observedAt is not { } lastObservation)
+        {
+            // Żadnej stacji nie udało się sprawdzić — to brak danych, nie „wszystko offline”.
+            metadata = QueryMetadata.Unavailable(
+                "Nie sprawdzono jeszcze stanu żadnej stacji (brak odpowiedzi lub brak adresu).");
+        }
+        else if (inventory.Truncated)
+        {
+            metadata = QueryMetadata.Partial(
+                lastObservation,
+                $"Wyczytano {inventory.Computers.Count} z {inventory.TotalComputers} komputerów — podnieś ZseAdmin:Directory:MaxComputers.");
+        }
+        else
+        {
+            metadata = new QueryMetadata(lastObservation, DataCompleteness.Complete, null);
+        }
 
         return new ComputerQueryResult(items, metadata);
     }

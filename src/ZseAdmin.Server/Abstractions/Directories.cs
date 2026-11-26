@@ -76,11 +76,12 @@ public interface IAdDirectory
 /// </summary>
 public sealed class SourceUnavailableException : Exception
 {
-    public SourceUnavailableException(string source, string message, Exception? inner = null)
+    public SourceUnavailableException(string sourceName, string message, Exception? inner = null)
         : base(message, inner)
     {
-        Source = source;
+        SourceName = sourceName;
     }
 
-    public string Source { get; }
+    /// <summary>Nazwa źródła danych (np. „Active Directory”); nie mylić z <see cref="Exception.Source"/>.</summary>
+    public string SourceName { get; }
 }

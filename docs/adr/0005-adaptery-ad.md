@@ -26,7 +26,8 @@ Do wyboru były trzy drogi: `System.DirectoryServices` (tylko Windows, prostsze 
 4. **Sprawdzanie dostępności jest osobnym portem**, bo to inna technologia i inny harmonogram
    niż odczyt katalogu.
 5. Wybór źródła odbywa się przez `ZseAdmin:UseMockData` w `Program.cs` (DI).
-   `UseMockDataForLogins` pozwala przejściowo mieć prawdziwe AD i przykładowe logowania (M1.5).
+   `UseMockDataForLogins` pozwalało przejściowo mieć prawdziwe AD i przykładowe logowania (M1.5;
+   zastąpione w M2 — patrz rozszerzenie na końcu dokumentu).
 
 ## Alternatywy
 
@@ -48,3 +49,13 @@ dodatkowego zapytania (rozwiązane: jedno zapytanie na wszystkie SID-y, nie N za
 jako „brak danych”.
 
 **Neutralne:** pakiet jest częścią .NET 8, więc nie zmienia wymagań wdrożeniowych.
+
+## Rozszerzenie — M2/M4 (2026-11-26)
+
+Przejściowy przełącznik `UseMockDataForLogins` (M1.5) został zastąpiony osobnym
+portem `ILoginEventSource` i konfiguracją `ZseAdmin:LoginHistory` (ADR-0006).
+W produkcji `ProductionConfigurationGuard` wymaga `UseMockDataForLogins = false`.
+Ten sam transporter LDAP (`LdapConnectionFactory`) zasila teraz również dwie
+dozwolone operacje zapisu `ILdapDirectoryWriter`: `unicodePwd` + `pwdLastSet`
+oraz `member` (ADR-0008). Nie dodano ogólnego endpointu LDAP — port nadal
+ogranicza powierzchnię zależności od AD.

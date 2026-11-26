@@ -4,7 +4,7 @@ using ZseAdmin.Server.Abstractions;
 namespace ZseAdmin.Server.Infrastructure.Ldap;
 
 /// <summary>
-/// Historia logowań jest etapem M2. Do tego czasu serwer w trybie produkcyjnym zwraca
+/// Tryb awaryjny, gdy kolektor historii logowań (M2) jest wyłączony konfiguracją:
 /// <c>unavailable</c> z powodem — pusta lista sugerowałaby, że nikt się nie logował.
 /// </summary>
 public sealed class UnavailableLoginLog : ILoginLog

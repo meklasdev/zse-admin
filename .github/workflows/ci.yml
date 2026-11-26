@@ -69,8 +69,21 @@ jobs:
           if ($prod.Security.RequireSecureTransport -ne $true) { Write-Error "Produkcja musi wymagać wss."; exit 1 }
           if ($prod.Security.Tokens.Count -gt 0) { Write-Error "Produkcja nie może zawierać tokenów."; exit 1 }
 
-      - name: Publikacja klienta
-        run: dotnet publish src/ZseAdmin.Client -c Release --no-build -o artifacts/client
+      - name: Publikacja klienta (bezpieczna konfiguracja)
+        shell: pwsh
+        run: '& ./scripts/publish-client.ps1 -Configuration Release -Output artifacts/client'
+
+      # Nie publikujemy deweloperskiego tokenu klienta: artefakt Release dostaje
+      # wss + UseWindowsAuth, tak samo jak scripts/publish-client.ps1.
+      - name: Konfiguracja produkcyjna klienta
+        shell: pwsh
+        run: |
+          $production = "src/ZseAdmin.Client/appsettings.Production.json"
+          Copy-Item $production artifacts/client/appsettings.json -Force
+          $client = Get-Content artifacts/client/appsettings.json -Raw | ConvertFrom-Json
+          if ($client.ServerUrl -notlike 'wss://*') { Write-Error "Klient produkcyjny musi używać wss://."; exit 1 }
+          if ($client.UseWindowsAuth -ne $true) { Write-Error "Klient produkcyjny musi używać Windows Auth."; exit 1 }
+          if ($client.Token) { Write-Error "Artefakt klienta nie może zawierać tokenu."; exit 1 }
 
       - name: Artefakty
         uses: actions/upload-artifact@v4

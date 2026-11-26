@@ -34,3 +34,12 @@ Dodatkowo `ComputerDto.status` ma wartość `unknown` różną od `offline`, a `
 **Negatywne:** więcej pól w protokole; każdy handler musi policzyć metadane (rozwiązane przez `FreshnessService`); klient musi formatować (rozwiązane przez `DisplayFormat`).
 
 **Neutralne:** `completeness` jest rozszerzalne (np. `stale`), ale lepiej trzymać się trzech wartości i wyrażać szczegóły w `note`.
+
+## Rozszerzenie — M2 (2026-11-26)
+
+`completeness` i `note` stały się nośnikiem kompletności źródeł historii logowań:
+brak dostępu do dziennika na 2 z 6 stacji → `partial` z liczbą stacji, zapytanie
+przed początkiem 30-dniowej retencji → `partial` z jawną datą graniczną, wyłączony
+kolektor → `unavailable` z powodem. To rozszerza pierwotną zasadę, ale nie zmienia
+`DataFreshnessDto`: wciąż obowiązują `source`, `observedAtUtc`, `isStale`,
+`completeness` i `note`. Szczegóły: ADR-0006.

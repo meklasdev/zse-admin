@@ -9,16 +9,22 @@ Wersja protokołu: **1** (stała `ProtocolJson.ProtocolVersion`, wysyłana w `we
 - Limit wiadomości: 1 MiB; przekroczenie zamyka sesję.
 - Keep-alive: ping WebSocket co 20 s po obu stronach.
 
-Token przekazywany jest **przed** upgrade'em:
+Uwierzytelnianie zależy od `Security:Mode`:
 
-| Sposób | Przykład | Kiedy |
+| Tryb | Mechanizm | Kiedy |
 |---|---|---|
-| Nagłówek | `X-ZseAdmin-Token: <token>` | klient desktopowy |
-| Parametr | `?access_token=<token>` | przeglądarka, konsola debug |
+| `Token` (development) | token w nagłówku `X-ZseAdmin-Token: <token>` albo `?access_token=<token>` (konsola debug) | lokalnie, CI |
+| `Windows` (produkcja) | Negotiate/Kerberos (`HttpContext.User` z IIS/HTTP.sys/Kestrel), rola z grup AD | wyłącznie `wss` |
 
-Brak lub błędny token → HTTP 401, sesja nie powstaje. Po upgrade'ie serwer nie przyjmuje już zmian tożsamości — reconnect wymaga nowego tokenu.
+Brak/błędny token lub brak grupy `ZSE-Admin-*` → HTTP 401, sesja nie powstaje.
+Gdy `Security:RequireSecureTransport = true`, połączenie bez HTTPS → HTTP 403 z
+`{"error":"Wymagane połączenie wss (HTTPS)."}` — również przed upgrade'em.
+Odmowy są zapisywane w audycie (`auth.rejected`, `transport.rejected`).
+Po upgrade'ie serwer nie przyjmuje już zmian tożsamości — reconnect wymaga nowego uwierzytelnienia.
+W trybie Windows token z `appsettings.json` jest ignorowany, a produkcja nie startuje,
+jeśli `Security:Tokens` nie jest puste.
 
-> Uwaga: tokeny to rozwiązanie MVP. Docelowo uwierzytelnianie Windows/Kerberos — `docs/uprawnienia-i-dane-osobowe.md`.
+> Uwaga: tokeny to rozwiązanie wyłącznie developerskie — patrz `docs/uprawnienia-i-dane-osobowe.md`.
 
 ## 2. Koperta
 
@@ -51,6 +57,11 @@ Serializacja: camelCase, enumy jako stringi camelCase (`"online"`, `"logon"`, `"
 | `welcome` | natychmiast po połączeniu | `WelcomeResponse` |
 | `error` | błąd żądania lub protokołu | `ErrorDto` |
 | `event.computer.status` | zmiana stanu komputera (push) | `ComputerStatusChangedEvent` |
+| `event.logins.new` | nowe zdarzenia logowań (M2, push) | `LoginEventsChangedEvent` |
+
+`event.logins.new` nie ma `requestId`. Serwer filtruje listę per sesja: nauczyciel dostaje
+wyłącznie zdarzenia ze swoich pracowni (`classroomScope`). Po reconnect klient i tak wykonuje
+pełny `logins.query`.
 
 `WelcomeResponse`:
 
@@ -64,7 +75,8 @@ Serializacja: camelCase, enumy jako stringi camelCase (`"online"`, `"logon"`, `"
     "userName": "k.mazur",
     "role": "Teacher",
     "capabilities": ["classrooms.read", "computers.read", "logins.read", "users.read"],
-    "serverTimeUtc": "2026-11-25T18:12:03+00:00"
+    "serverTimeUtc": "2026-11-25T18:12:03+00:00",
+    "classroomScope": ["prac-101"]
   }
 }
 ```
@@ -78,6 +90,23 @@ Serializacja: camelCase, enumy jako stringi camelCase (`"online"`, `"logon"`, `"
 | `computers.list` | `computers.read` | `ComputerListRequest` | `ComputersResponse` |
 | `logins.query` | `logins.read` | `LoginQueryRequest` | `LoginsResponse` |
 | `users.get` | `users.read` | `UserLookupRequest` | `UserResponse` |
+| `audit.query` | `audit.read` | `AuditQueryRequest` | `AuditQueryResponse` |
+| `action.prepare` | `computers.control` lub `users.write` | `ActionPrepareRequest` | `ActionPrepareResponse` |
+| `action.execute` | jw. + ważny token potwierdzenia | `ActionExecuteRequest` | `ActionExecuteResponse` |
+
+`LoginQueryRequest` ma dodatkowe opcjonalne `classroomId` / `classroomIds`. Serwer **nadpisuje**
+je dla roli Teacher — klient nie może poszerzyć zakresu, a filtr po komputerze spoza zakresu
+kończy się `forbidden`. `LoginEventDto.classroomId` pochodzi z inwentarza komputerów.
+
+`ActionPrepareRequest.Action`: `restartComputer`, `lockComputer`, `resetPassword`, `addToGroup`.
+`action.prepare` nic nie zmienia: zwraca `before`, ostrzeżenia i jednorazowy `confirmationToken`
+(ważny 120 s, związany z aktorem i celem). `action.execute` wymaga `confirm: true`; po udanym
+wykonaniu zwraca `after` i `auditId`. Błąd źródła zawsze przychodzi jako `error`.
+`temporaryPassword` jest obecne wyłącznie po `resetPassword` i tylko w tej jednej odpowiedzi.
+
+`AuditQueryRequest.Target` zawęża wpisy do konta lub komputera — to samo zapytanie zasila
+szczegóły obiektu w UI. `AuditEntryDto` zawiera `actor`, `role`, `capability`, `action`,
+`target`, `before`, `after`, `result`, `remoteAddress` i `detail`; hasła są maskowane.
 
 ## 4. Przykłady
 
@@ -134,7 +163,8 @@ Serializacja: camelCase, enumy jako stringi camelCase (`"online"`, `"logon"`, `"
         "computerName": "KS-101-01",
         "occurredAtUtc": "2026-11-25T07:42:11+00:00",
         "type": "logon",
-        "source": "Security log (4624)"
+        "source": "Security log (4624)",
+        "classroomId": "prac-101"
       }
     ],
     "totalMatched": 137,
@@ -143,7 +173,7 @@ Serializacja: camelCase, enumy jako stringi camelCase (`"online"`, `"logon"`, `"
       "observedAtUtc": "2026-11-25T18:12:00+00:00",
       "isStale": false,
       "completeness": "partial",
-      "note": "Źródło pokrywa ostatnie 14 dni."
+      "note": "Brak dostępu do dziennika na 2 z 6 stacji: KS-101-05, KS-101-06. Retencja: 30 dni."
     }
   }
 }
@@ -193,18 +223,115 @@ Serializacja: camelCase, enumy jako stringi camelCase (`"online"`, `"logon"`, `"
 }
 ```
 
+```json
+{
+  "type": "event.logins.new",
+  "payload": {
+    "items": [
+      {
+        "id": "c4d0b5cb-0a93-4d62-b7f1-ea8d03f5f2d1",
+        "userSamAccountName": "j.kowalski",
+        "computerName": "KS-101-01",
+        "classroomId": "prac-101",
+        "occurredAtUtc": "2026-11-25T18:13:11+00:00",
+        "type": "logon",
+        "source": "Security log (4624)"
+      }
+    ]
+  }
+}
+```
+
+### 4.6 Akcja M4 — przygotowanie, wykonanie, audyt
+
+```json
+{ "type": "action.prepare", "requestId": "r-5", "payload": { "action": "restartComputer", "target": "KS-101-01", "reason": "Zamrożony ekran" } }
+```
+
+```json
+{
+  "type": "action.prepare",
+  "requestId": "r-5",
+  "payload": {
+    "confirmationToken": "…jednorazowy token…",
+    "action": "restartComputer",
+    "target": "KS-101-01",
+    "capability": "computers.control",
+    "description": "Restart stacji KS-101-01",
+    "before": "stan: Online; IP: 10.20.101.11; blokada: nie; obserwacja: 2026-11-25 18:11 UTC",
+    "warnings": [
+      "Operacja zostanie zapisana w audycie z aktorem, celem i wartością przed/po.",
+      "Stacja zrestartuje się za 30 s — upewnij się, że nikt nie pracuje."
+    ],
+    "expiresAtUtc": "2026-11-25T18:15:03+00:00"
+  }
+}
+```
+
+```json
+{ "type": "action.execute", "requestId": "r-6", "payload": { "confirmationToken": "…jednorazowy token…", "confirm": true } }
+```
+
+```json
+{
+  "type": "action.execute",
+  "requestId": "r-6",
+  "payload": {
+    "success": true,
+    "action": "restartComputer",
+    "target": "KS-101-01",
+    "message": "Zaplanowano restart (dane przykładowe — stacja nie została fizycznie zrestartowana).",
+    "before": "stan: Online; IP: 10.20.101.11; blokada: nie; obserwacja: 2026-11-25 18:11 UTC",
+    "after": "restart zaplanowany za 30 s (makieta)",
+    "auditId": "0d2b7adf-7fbd-4b24-a8ab-4d2a5ccc0910",
+    "freshness": { "source": "Operacja serwera", "observedAtUtc": "2026-11-25T18:13:20+00:00", "isStale": false, "completeness": "complete" }
+  }
+}
+```
+
+```json
+{ "type": "audit.query", "requestId": "r-7", "payload": { "target": "KS-101-01", "take": 10 } }
+```
+
+```json
+{
+  "type": "audit.query",
+  "requestId": "r-7",
+  "payload": {
+    "items": [
+      {
+        "id": "0d2b7adf-7fbd-4b24-a8ab-4d2a5ccc0910",
+        "timestampUtc": "2026-11-25T18:13:20+00:00",
+        "actor": "a.nowak",
+        "role": "Administrator",
+        "capability": "computers.control",
+        "action": "RestartComputer",
+        "target": "KS-101-01",
+        "before": "stan: Online; IP: 10.20.101.11; blokada: nie; obserwacja: 2026-11-25 18:11 UTC",
+        "after": "restart zaplanowany za 30 s (makieta)",
+        "result": "success",
+        "remoteAddress": "10.20.1.35",
+        "detail": "Powód: Zamrożony ekran · Zaplanowano restart."
+      }
+    ],
+    "totalMatched": 1,
+    "freshness": { "source": "Rejestr audytu (12 miesięcy)", "observedAtUtc": "2026-11-25T18:13:20+00:00", "isStale": false, "completeness": "complete" }
+  }
+}
+```
+
 ## 5. Kody błędów
 
 | Kod | Znaczenie | Reakcja klienta |
 |---|---|---|
 | `invalidRequest` | nieznany `type`, zły payload, nieczytelny JSON | błąd programisty — pokazać w logu |
-| `unauthorized` | brak/zły token | nie ponawiać w pętli; poprosić o konfigurację |
-| `forbidden` | rola bez uprawnienia | ukryć akcję w UI |
-| `notFound` | brak zasobu (np. konto) | pusty stan z komunikatem |
-| `upstreamUnavailable` | źródło (AD, LDAP, dziennik) nieosiągalne; `detail` ma komunikat źródła | pokazać „dane niedostępne” + źródło, pozwolić na ponowienie — **nie** pokazywać pustej listy |
+| `unauthorized` | brak/zły token lub brak grupy AD (HTTP 401 przed upgrade'em) | nie ponawiać w pętli; poprosić o konfigurację |
+| `forbidden` | rola bez uprawnienia, nauczyciel poza zakresem, zapis wyłączony | ukryć akcję w UI, pokazać zakres z `welcome` |
+| `notFound` | brak zasobu (np. konto/komputer akcji) | pusty stan z komunikatem |
+| `upstreamUnavailable` | źródło (AD, LDAP, dziennik, WinRM, `shutdown.exe`) nieosiągalne; `detail` ma komunikat źródła | pokazać „dane niedostępne” + źródło, pozwolić na ponowienie — **nie** pokazywać pustej listy ani „sukcesu” |
 | `internal` | błąd serwera | komunikat + ponowienie za chwilę |
 
-### 5.1 Brak danych a błąd (etap M1)
+### 5.1 Brak danych a błąd (M1–M4)
 
 | Sytuacja | Co dostaje klient |
 |---|---|
@@ -212,8 +339,12 @@ Serializacja: camelCase, enumy jako stringi camelCase (`"online"`, `"logon"`, `"
 | Konto nie istnieje | `error: notFound` |
 | Inwentarz obcięty limitem `MaxComputers` | poprawna lista + `freshness.completeness = partial` i nota z liczbami |
 | Stan nie był jeszcze sprawdzony (brak adresu/timeout pingu) | lista z `status = unknown`, `freshness.completeness = unavailable` |
-| Historia logowań przed etapem M2 | `logins.query` z pustą listą, ale `completeness = unavailable` i nota „etap M2” |
-| Zakres zapytania przed retencją | `completeness = partial` + nota z początkiem retencji |
+| `LoginHistory:Enabled = false` (tryb awaryjny) | `logins.query` z pustą listą, `completeness = unavailable` i notą „Historia logowań nie jest jeszcze podłączona (etap M2)” |
+| Zakres zapytania przed retencją 30 dni | `completeness = partial` + nota z początkiem retencji |
+| 2 z 6 stacji bez dziennika | poprawna lista + `completeness = partial` i nota z liczbą stacji |
+| Nauczyciel prosi o obcą pracownię | `error: forbidden` z komunikatem o braku zajęć |
+| Połączenie bez `wss` w produkcji | HTTP 403 + wpis `transport.rejected` w audycie |
+| Awaria `action.execute` | `error: upstreamUnavailable` z nazwą źródła + wpis audytu `result = failed` |
 
 Zasada: **pusty wynik nigdy nie jest jedyną informacją** — zawsze towarzyszy mu
 `freshness` mówiące, czy źródło w ogóle odpowiedziało.
@@ -234,8 +365,27 @@ Brak mechanizmu kolejki/`since` w wersji 1 — świadoma decyzja: pełny odczyt 
 - Zmiana znaczenia pola, usunięcie pola lub zmiana typu wymaga `protocolVersion` + 1 i okresu równoległej obsługi.
 - Klient powinien odrzucić połączenie z `protocolVersion` większym niż obsługiwany i pokazać komunikat o aktualizacji.
 
+### 7.1 Rozszerzenia M2/M3/M4 w wersji 1
+
+Zgodnie z powyższą regułą są to **dodatkowe, opcjonalne pola i nowe typy** — `protocolVersion`
+pozostaje `1`, a starszy klient może ignorować nieznane wiadomości:
+
+| Dodane | Charakter |
+|---|---|
+| `event.logins.new`, `audit.query`, `action.prepare`, `action.execute` | nowe `type` (kompatybilne wstecz) |
+| `welcome.classroomScope` | nowe opcjonalne pole |
+| `LoginQueryRequest.classroomId` / `classroomIds` | nowe opcjonalne pola; dla Teacher nadpisywane przez serwer |
+| `LoginEventDto.classroomId` | nowe opcjonalne pole |
+
+Nie zmieniono znaczenia żadnego istniejącego pola. `logins.query` nadal zwraca `LoginsResponse`
+z `items`, `totalMatched` i `freshness`; M2 zmienia jedynie źródło danych i treść noty.
+Wymuszenie `wss` i zmiana trybu uwierzytelniania są konfiguracją wdrożenia, nie zmianą formatu
+wiadomości. Gdyby w przyszłości trzeba było np. usunąć `access_token` albo zmienić `role`,
+wymagałoby to `protocolVersion = 2`.
+
 ## 8. Ograniczenia wersji 1
 
-- Brak subskrypcji tematycznych (klient dostaje wszystkie zdarzenia stanu).
+- Brak subskrypcji tematycznych (klient dostaje zdarzenia stanu wszystkich pracowni, do których ma dostęp; `event.logins.new` jest filtrowany per sesja).
 - Brak strumieniowania dużych list (paginacja po `take`, brak kursora).
 - Brak kompresji ramek (przy 30 sesjach i małych wiadomościach niepotrzebna).
+- Bufor logowań i rejestr audytu są w pamięci procesu (M2: 30 dni, M3/M4: 12 miesięcy); audyt można dodatkowo zapisywać do pliku JSONL. Po restarcie serwera stan jest odtwarzany ze źródeł, a wpisy audytu tylko z pliku — patrz ADR-0003.

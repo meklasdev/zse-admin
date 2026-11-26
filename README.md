@@ -2,7 +2,10 @@
 
 Repozytorium zawiera **ocenę specyfikacji** (`docs/ocena.md`) oraz **działającą aplikację**:
 serwer WebSocket na .NET 8 (dane przykładowe albo prawdziwe Active Directory przez LDAP)
-i klient WPF. Specyfikacja produktu (poniżej) pozostaje źródłem wymagań.
+i klient WPF. Zrealizowano etapy **M0–M4**: odczyt AD, historia logowań z retencją,
+uwierzytelnianie Windows/grupami AD z `wss`, zakres danych nauczyciela oraz akcje
+na stacjach i zapis do AD z potwierdzeniem i audytem. Specyfikacja produktu (poniżej)
+pozostaje źródłem wymagań.
 
 | Chcesz… | Zajrzyj do |
 |---|---|
@@ -12,6 +15,8 @@ i klient WPF. Specyfikacja produktu (poniżej) pozostaje źródłem wymagań.
 | sprawdzić role i RODO | [`docs/uprawnienia-i-dane-osobowe.md`](docs/uprawnienia-i-dane-osobowe.md) |
 | uruchomić projekt | [`docs/uruchomienie.md`](docs/uruchomienie.md) |
 | zobaczyć plan etapów i kryteria akceptacji | [`docs/roadmapa.md`](docs/roadmapa.md) |
+| uruchomić M2/M3/M4 (logi, Kerberos, akcje) | [`docs/uruchomienie.md`](docs/uruchomienie.md) §5b–5d |
+| poznać decyzje architektoniczne M2–M4 | [`docs/adr/`](docs/adr/) — ADR 0006, 0007, 0008 |
 
 ## Cel produktu
 
@@ -115,9 +120,14 @@ przypadki błędów, zanim zostanie zaprojektowana nawigacja i szczegóły widok
 ├── docs/                        ocena, architektura, protokół, RODO, roadmapa, ADR-y
 │   └── adr/                     decyzje architektoniczne z alternatywami
 ├── src/
-│   ├── ZseAdmin.Contracts/      DTO i protokół (wspólne dla serwera i klienta)
+│   ├── ZseAdmin.Contracts/      DTO i protokół (wspólne dla serwera i klienta; wersja 1)
 │   ├── ZseAdmin.Server/         ASP.NET Core: WebSocket /ws, routing, uprawnienia, AD/LDAP
+│   │   ├── Infrastructure/Logins/  bufor historii, kolektor, WEF/EventLog, makieta (M2)
+│   │   ├── Infrastructure/Audit/   rejestr audytu 12 miesięcy (M3/M4)
+│   │   ├── Infrastructure/Windows/ akcje na stacjach (M4)
+│   │   ├── Security/              grupy AD, wss, zakres pracowni (M3)
 │   │   ├── classrooms.json      definicja pracowni i mapowanie OU (konfiguracja, nie kod)
+│   │   ├── appsettings.Production.json  bramka produkcyjna (bez tokenów, z wss)
 │   │   └── wwwroot/debug.html   konsola protokołu do testów ręcznych
 │   ├── ZseAdmin.Client.Core/    klient WS, API typowane, ViewModele (bez WPF)
 │   └── ZseAdmin.Client/         aplikacja WPF (XAML)
@@ -142,24 +152,36 @@ Szczegóły, konfiguracja i rozwiązywanie problemów: [`docs/uruchomienie.md`](
 
 - **M0 (szkielet): gotowe.** Protokół, serwer, klient, testy, CI, dokumentacja.
 - **M1 (prawdziwe AD): gotowe.** Adapter LDAP (`System.DirectoryServices.Protocols`), `classrooms.json`
-  z walidacją przy starcie, mapowanie OU → pracownia („poza pracownią” zamiast znikania),
-  komputery i konta z AD, grupy przez `tokenGroups` jednym zapytaniem, sprawdzanie dostępności
-  stacji (ICMP), limity i cache, `upstreamUnavailable` zamiast pustych list. Szczegóły:
-  [`docs/adr/0005-adaptery-ad.md`](docs/adr/0005-adaptery-ad.md) i `docs/roadmapa.md`.
-- **Następne etapy:** M2 — historia logowań (WEF/dzienniki, retencja, kompletność);
-  M3 — uwierzytelnianie Windows/Kerberos zamiast tokenów; M4 — akcje na stacjach.
-- MVP jest **tylko do odczytu**; zapis do AD i akcje na stacjach są poza zakresem (ADR-0003).
-- Tokeny w konfiguracji są rozwiązaniem deweloperskim i **nie mogą** trafić na produkcję.
+  z walidacją przy starcie, mapowanie OU → pracownia, `tokenGroups`, ICMP, limity i cache.
+- **M2 (historia logowań): gotowe.** Zdalny odczyt 4624/4634/4625 lub WEF, bufor z deduplikacją,
+  retencja 30 dni, `completeness = partial` z liczbą niedostępnych stacji, push `event.logins.new`.
+- **M3 (bezpieczeństwo): gotowe.** `Security:Mode = Windows` (Negotiate/Kerberos), role z grup AD,
+  wymuszone `wss`, zakres pracowni nauczyciela z planem lekcji, audyt i bramka produkcyjna.
+- **M4 (akcje i zapis): gotowe.** Restart/blokada stacji, reset hasła i dodanie do grupy —
+  dwukrokowe potwierdzenie, `upstreamUnavailable` przy awarii, wpis audytowy przed/po,
+  przyciski widoczne tylko dla ról z uprawnieniem.
+- **Następny etap: M5 (wdrożenie).** Usługa Windows, certyfikaty, firewall, DPIA, pilotaż.
+- **Uwaga:** ADR-0003 („MVP bez bazy”) obowiązuje nadal — bufor logowań i audyt są w pamięci
+  procesu, z opcjonalnym plikiem JSONL dla audytu. Nie ma własnej bazy danych.
+- Tokeny w `appsettings.json` są wyłącznie deweloperskie; produkcja ich nie czyta i nie startuje,
+  jeśli bramka wykryje niebezpieczną konfigurację.
 
-### Dwa tryby danych
+Szczegóły i kryteria akceptacji: [`docs/roadmapa.md`](docs/roadmapa.md).
+
+### Tryby danych i uwierzytelniania
 
 ```jsonc
-// appsettings.json
-"ZseAdmin": {
-  "UseMockData": true,          // development/CI: dane przykładowe, bez domeny
-  "UseMockDataForLogins": true  // tryb przejściowy M1.5: prawdziwe AD, logowania z makiety
-}
+// appsettings.json — development
+"ZseAdmin": { "UseMockData": true, "LoginHistory": { "Enabled": true } },
+"Security": { "Mode": "Token", "RequireSecureTransport": false }
+
+// appsettings.Production.json — produkcja
+"ZseAdmin": { "UseMockData": false, "Directory": { "UseSsl": true },
+              "LoginHistory": { "Source": "WindowsEventLog" } },
+"Security": { "Mode": "Windows", "RequireSecureTransport": true, "Tokens": [] }
 ```
 
-Przejście na AD: `UseMockData = false` + uzupełniony `src/ZseAdmin.Server/classrooms.json`
-i sekcja `ZseAdmin:Directory`. Instrukcja krok po kroku: [`docs/uruchomienie.md`](docs/uruchomienie.md) §5a.
+W trybie `UseMockData = true` źródło logowań jest zawsze makiety (bez względu na
+`LoginHistory:Source`). Klient w produkcji: `wss://…` + `UseWindowsAuth = true`, bez tokenu;
+publikuj go przez `scripts/publish-client.ps1`, bo zwykły `dotnet publish` kopiuje
+deweloperski token. Instrukcja krok po kroku: [`docs/uruchomienie.md`](docs/uruchomienie.md) §5a–5d.

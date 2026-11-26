@@ -13,8 +13,8 @@ public interface ITransportSecurityGuard
 
 /// <summary>
 /// M3: w produkcji tylko <c>wss</c>. Za reverse proxy (IIS) <c>UseForwardedHeaders</c>
-/// ustawia <c>request.IsHttps</c> na podstawie <c>X-Forwarded-Proto</c> od zaufanego proxy;
-/// sam nagłówek od klienta nie jest dowodem, dlatego sprawdzamy oba źródła.
+/// ustawia <c>request.IsHttps</c> na podstawie <c>X-Forwarded-Proto</c> od zaufanego proxy.
+/// Sam nagłówek od klienta nie jest dowodem, dlatego sprawdzamy wyłącznie wynik middleware'u.
 /// </summary>
 public sealed class TransportSecurityGuard : ITransportSecurityGuard
 {

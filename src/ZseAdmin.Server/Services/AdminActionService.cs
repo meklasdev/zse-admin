@@ -186,7 +186,7 @@ public sealed class AdminActionService
                     change.After,
                     "success",
                     identity.RemoteAddress,
-                    BuildDetail(pending, change.Message)),
+                    BuildDetail(pending, change.Message, request.Reason)),
                 cancellationToken).ConfigureAwait(false);
 
             return new ActionExecuteResponse(
@@ -203,13 +203,15 @@ public sealed class AdminActionService
         }
         catch (ActionTargetNotFoundException ex)
         {
-            await RecordFailureAsync(pending, identity, ex.Message, cancellationToken).ConfigureAwait(false);
+            await RecordFailureAsync(
+                pending, identity, ex.Message, request.Reason, cancellationToken).ConfigureAwait(false);
 
             throw new ProtocolException(ErrorCode.NotFound, ex.Message);
         }
         catch (ActionFailedException ex)
         {
-            await RecordFailureAsync(pending, identity, ex.Message, cancellationToken).ConfigureAwait(false);
+            await RecordFailureAsync(
+                pending, identity, ex.Message, request.Reason, cancellationToken).ConfigureAwait(false);
 
             throw new ProtocolException(
                 ErrorCode.UpstreamUnavailable,
@@ -218,7 +220,8 @@ public sealed class AdminActionService
         }
         catch (SourceUnavailableException ex)
         {
-            await RecordFailureAsync(pending, identity, ex.Message, cancellationToken).ConfigureAwait(false);
+            await RecordFailureAsync(
+                pending, identity, ex.Message, request.Reason, cancellationToken).ConfigureAwait(false);
 
             throw new ProtocolException(
                 ErrorCode.UpstreamUnavailable,
@@ -231,6 +234,7 @@ public sealed class AdminActionService
         PendingAction pending,
         ClientIdentity identity,
         string reason,
+        string? executeReason,
         CancellationToken cancellationToken)
     {
         await _audit.RecordAsync(
@@ -244,16 +248,24 @@ public sealed class AdminActionService
                 pending.Before,
                 "failed",
                 identity.RemoteAddress,
-                $"{BuildDetail(pending, null)} Błąd źródła: {reason}"),
+                $"{BuildDetail(pending, null, executeReason)} Błąd źródła: {reason}"),
             cancellationToken).ConfigureAwait(false);
     }
 
-    private static string BuildDetail(PendingAction pending, string? sourceMessage)
+    private static string BuildDetail(
+        PendingAction pending,
+        string? sourceMessage,
+        string? executeReason = null)
     {
         var parts = new List<string>();
         if (!string.IsNullOrWhiteSpace(pending.Reason))
         {
             parts.Add($"Powód: {pending.Reason.Trim()}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(executeReason))
+        {
+            parts.Add($"Powód potwierdzenia: {executeReason.Trim()}");
         }
 
         if (pending.GroupName is { Length: > 0 } group)

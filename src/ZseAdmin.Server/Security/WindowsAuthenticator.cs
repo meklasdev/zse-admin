@@ -31,7 +31,14 @@ public sealed class WindowsAuthenticator : ITokenAuthenticator
             return null;
         }
 
-        var groups = _groups.GetGroups(principal);
+        // W identity trzymamy obie formy nazwy (z prefiksem domeny i bez), żeby
+        // konfiguracja i audyt mogły używać krótkiej nazwy grupy.
+        var groups = _groups.GetGroups(principal)
+            .SelectMany(g => new[] { g, RoleCatalog.ShortName(g) })
+            .Where(g => g.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
         var role = RoleCatalog.RoleFromGroups(groups, _options.RoleGroups);
         if (role is null)
         {

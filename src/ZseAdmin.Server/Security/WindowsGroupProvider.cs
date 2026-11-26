@@ -1,6 +1,10 @@
 using System.Security.Claims;
 using System.Security.Principal;
 
+// WindowsIdentity/SecurityIdentifier to API Windows. W trybie produkcyjnym host
+// (IIS/HTTP.sys/Negotiate) zawsze jest Windows; w testach używany jest fake provider.
+#pragma warning disable CA1416
+
 namespace ZseAdmin.Server.Security;
 
 /// <summary>
@@ -19,9 +23,13 @@ public sealed class WindowsGroupProvider : IWindowsGroupProvider
         {
             try
             {
-                foreach (IdentityReference reference in windowsIdentity.Groups)
+                var references = windowsIdentity.Groups;
+                if (references is not null)
                 {
-                    AddSid(reference.Value, groups);
+                    foreach (IdentityReference reference in references)
+                    {
+                        AddSid(reference.Value, groups);
+                    }
                 }
             }
             catch (PlatformNotSupportedException)
@@ -68,3 +76,5 @@ public sealed class WindowsGroupProvider : IWindowsGroupProvider
         groups.Add(RoleCatalog.ShortName(raw));
     }
 }
+
+#pragma warning restore CA1416

@@ -5,6 +5,11 @@ using ZseAdmin.Contracts;
 using ZseAdmin.Server.Abstractions;
 using ZseAdmin.Server.Configuration;
 
+// Eventing.Reader jest API wyłącznie Windows. Adapter jest wybierany tylko w trybie
+// produkcyjnym na Windows (w development/CI działa źródło Mock), więc ostrzeżenia
+// analizatora o zgodności platformowej są tu świadomie wyciszone.
+#pragma warning disable CA1416
+
 namespace ZseAdmin.Server.Infrastructure.Logins;
 
 /// <summary>
@@ -192,3 +197,5 @@ public sealed class RemoteSecurityEventSource : ILoginEventSource
         return name.All(c => char.IsLetterOrDigit(c) || c is '.' or '-' or '_');
     }
 }
+
+#pragma warning restore CA1416

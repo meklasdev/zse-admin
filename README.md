@@ -17,6 +17,10 @@ pozostaje źródłem wymagań.
 | zobaczyć plan etapów i kryteria akceptacji | [`docs/roadmapa.md`](docs/roadmapa.md) |
 | uruchomić M2/M3/M4 (logi, Kerberos, akcje) | [`docs/uruchomienie.md`](docs/uruchomienie.md) §5b–5d |
 | poznać decyzje architektoniczne M2–M4 | [`docs/adr/`](docs/adr/) — ADR 0006, 0007, 0008 |
+| zobaczyć notatki zamawiającego (sale, topologia, `/pepsi`, uczniowie) i decyzje do podjęcia | [`docs/notatki-zamawiajacego-2026-11-26.md`](docs/notatki-zamawiajacego-2026-11-26.md) |
+| poznać obowiązujący styl UI (spójny, flat, zero glow) | [`docs/ui-design-system.md`](docs/ui-design-system.md) |
+| przejrzeć backlog zadań dla deweloperów (M6–M8) | [`docs/zadania/`](docs/zadania/) |
+| sprawdzić decyzję o ikonach i pakiecie `SvgIcons` | [`docs/adr/0009-ikony-svg.md`](docs/adr/0009-ikony-svg.md) — status: propozycja |
 
 ## Cel produktu
 
@@ -118,7 +122,10 @@ przypadki błędów, zanim zostanie zaprojektowana nawigacja i szczegóły widok
 
 ```
 ├── docs/                        ocena, architektura, protokół, RODO, roadmapa, ADR-y
-│   └── adr/                     decyzje architektoniczne z alternatywami
+│   ├── adr/                     decyzje architektoniczne z alternatywami
+│   ├── zadania/                 backlog zadań M6–M8 z kryteriami Given/When/Then
+│   ├── ui-design-system.md      tokeny, kontrolki, zasada „zero glow”
+│   └── notatki-zamawiajacego-2026-11-26.md  surowe notatki + interpretacja + decyzje
 ├── src/
 │   ├── ZseAdmin.Contracts/      DTO i protokół (wspólne dla serwera i klienta; wersja 1)
 │   ├── ZseAdmin.Server/         ASP.NET Core: WebSocket /ws, routing, uprawnienia, AD/LDAP
@@ -161,6 +168,11 @@ Szczegóły, konfiguracja i rozwiązywanie problemów: [`docs/uruchomienie.md`](
   dwukrokowe potwierdzenie, `upstreamUnavailable` przy awarii, wpis audytowy przed/po,
   przyciski widoczne tylko dla ról z uprawnieniem.
 - **Następny etap: M5 (wdrożenie).** Usługa Windows, certyfikaty, firewall, DPIA, pilotaż.
+- **Nowy backlog (2026-11-26): M6–M8 — do zaplanowania, niezaimplementowane.** Notatki zamawiającego
+  (sale i diagram topologii w stylu Packet Tracer, brak dostępu uczniów, hosting plików `/pepsi`,
+  konto AD → profil lokalny na stacji, ikony, jednolite UI bez poświaty) oraz 10 zadań dla
+  deweloperów z kryteriami Given/When/Then: [`docs/zadania/`](docs/zadania/). Decyzje D1–D10
+  do podjęcia przed częścią zadań: [`docs/notatki-zamawiajacego-2026-11-26.md`](docs/notatki-zamawiajacego-2026-11-26.md) §4.
 - **Uwaga:** ADR-0003 („MVP bez bazy”) obowiązuje nadal — bufor logowań i audyt są w pamięci
   procesu, z opcjonalnym plikiem JSONL dla audytu. Nie ma własnej bazy danych.
 - Tokeny w `appsettings.json` są wyłącznie deweloperskie; produkcja ich nie czyta i nie startuje,

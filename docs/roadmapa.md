@@ -118,6 +118,40 @@ Od M2 historia ma własne źródło; przełącznik M1.5 w produkcji jest blokowa
 - Pilotaż w jednej pracowni przez tydzień bez utraty danych (kompletność ≥ 95%).
 - Użytkownicy końcowi (1 nauczyciel, 1 administrator) wykonują zadania z listy bez pomocy.
 
+## M6–M8 — Nowy backlog (2026-11-26, do zaplanowania)
+
+**Status:** specyfikacja i zadania gotowe, **implementacja nie rozpoczęta**. Źródło:
+[`notatki-zamawiajacego-2026-11-26.md`](notatki-zamawiajacego-2026-11-26.md). Szczegółowe zakresy,
+pliki, testy i kryteria akceptacji dla każdego zadania: [`zadania/`](zadania/).
+Zasady M0–M4 (ADR-0003, 0007, 0008) obowiązują; zmiany protokołu są rozszerzeniami wersji 1.
+
+| Etap | Zakres | Zadania |
+|---|---|---|
+| **M6 — System projektowy UI** | spójne, płaskie UI: 1px obramowania, tokeny, zero cieni/poświaty, ikony, formularze dwukolumnowe, kontrola w CI | [ZAD-01](zadania/01-design-system.md), [ZAD-02](zadania/02-ikony-svg.md), [ZAD-03](zadania/03-formularze-dwukolumnowe.md), [ZAD-10](zadania/10-ci-dokumentacja-dostepnosc.md) |
+| **M7 — Topologia pracowni** | fizyczne sale + `topology.json` + diagram połączeń w stylu Cisco Packet Tracer | [ZAD-04](zadania/04-model-topologii.md), [ZAD-05](zadania/05-widok-topologii.md) |
+| **M8 — Dostęp, pliki i tożsamość** | uczniowie bez dostępu (fail-close), tylko odczyt `/pepsi`, konto AD vs profil lokalny na stacji | [ZAD-06](zadania/06-dostep-uczniow.md), [ZAD-07](zadania/07-pliki-pepsi-backend.md), [ZAD-08](zadania/08-pliki-pepsi-ui.md), [ZAD-09](zadania/09-konto-ad-vs-lokalne.md) |
+
+**Kryteria akceptacji etapów (skrót; pełna lista w plikach zadań):**
+
+- **Given** klient po M6, **when** przeszukam XAML, **then** nie ma efektów cienia/poświaty ani
+  kolorów wpisanych w widokach, a fokus i stany danych są opisane zgodnie z
+  [`ui-design-system.md`](ui-design-system.md).
+- **Given** M7, **when** otworzę widok topologii, **then** widzę sale, węzły, porty i łącza z
+  `topology.json`, a komputer bez wpisu jest oznaczony „brak danych”, nie znika.
+- **Given** M8, **when** konto z grupy uczniowskiej spróbuje połączyć się lub wyśle dowolne
+  żądanie, **then** dostaje odmowę z audytem i żadnych danych; `/pepsi` jest dostępne wyłącznie
+  do odczytu metadanych i wyłącznie dla roli z `files.read`.
+- **Given** dowolny etap, **when** uruchomię CI na `windows-latest`, **then** `build`, `test`
+  i kontrola „zero glow” są zielone, a dokumentacja protokołu/modelu/uprawnień jest zgodna z kodem.
+
+**Kolejność:** ZAD-01 i ZAD-06 najpierw (fundament UI i bezpieczeństwo), potem ZAD-02/03/04,
+następnie ZAD-05/09, ZAD-07, ZAD-08, a ZAD-10 domyka dokumentację na końcu każdego etapu.
+M5 (wdrożenie, DPIA) pozostaje warunkiem wypuszczenia któregokolwiek z nowych etapów na produkcję.
+
+**Decyzje blokujące:** D1–D10 w [`notatki-zamawiajacego-2026-11-26.md`](notatki-zamawiajacego-2026-11-26.md) §4
+(m.in. czym jest `/pepsi`, czy „zdj” oznacza też zdjęcia, kto widzi pliki i topologię, weryfikacja
+`SvgIcons 0.1.10` przed dodaniem paczki).
+
 ## Backlog decyzji (z README, sekcja „Co doprecyzować”)
 
 | Decyzja | Etap | Właściciel | Stan |
@@ -130,6 +164,7 @@ Od M2 historia ma własne źródło; przełącznik M1.5 w produkcji jest blokowa
 | Sposób sygnalizowania reconnectu | M0 (zrobione) | — | zrobione |
 | Ograniczenie retencji i widoczności historii | M2/M3 | DPO | mechanizmy gotowe; klauzula/DPIA przed wdrożeniem |
 | Skala: liczba stacji i klientów | M1 | administrator IT | zrobione |
+| D1–D10: sale/topologia, `/pepsi`, uczniowie, konta AD, ikony, font, deny overrides | M6–M8 | administrator IT, dyrekcja, DPO, deweloper | **do podjęcia** — [`notatki-zamawiajacego-2026-11-26.md`](notatki-zamawiajacego-2026-11-26.md) §4, [`zadania/README.md`](zadania/README.md) |
 
 ## Weryfikacja M2/M3/M4
 

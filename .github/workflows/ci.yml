@@ -29,16 +29,45 @@ jobs:
       - name: Testy
         run: dotnet test ZseAdmin.sln -c Release --no-build --logger "trx;LogFileName=testy.trx"
 
+      # Logi runnera nie zawsze są dostępne z zewnątrz — wypisujemy porażki testów
+      # jako adnotacje GitHub, żeby komunikat był widoczny bez pobierania zip-a z logami.
+      - name: Szczegóły nieudanych testów
+        if: failure()
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem -Path . -Recurse -Filter "*.trx" -ErrorAction SilentlyContinue
+          foreach ($file in $files) {
+            [xml]$doc = Get-Content -Raw $file.FullName
+            $ns = New-Object System.Xml.XmlNamespaceManager($doc.NameTable)
+            $ns.AddNamespace("t", "http://microsoft.com/schemas/VisualStudio/TeamTest/2010")
+            $failed = $doc.SelectNodes("//t:UnitTestResult[@outcome='Failed']", $ns)
+            foreach ($result in $failed) {
+              $name = $result.GetAttribute("testName")
+              $message = $result.SelectSingleNode("t:Output/t:ErrorInfo/t:Message", $ns)
+              $text = if ($message) { $message.InnerText } else { "brak komunikatu" }
+              $text = ($text -replace "`r", " " -replace "`n", " " -replace "%", "%25")
+              Write-Output "::error::$name -- $text"
+            }
+          }
+
       - name: Publikacja serwera
         run: dotnet publish src/ZseAdmin.Server -c Release --no-build -o artifacts/server
 
-      - name: Kontrola artefaktu (definicja pracowni w publikacji)
+      - name: Kontrola artefaktu (definicja pracowni i konfiguracja produkcyjna)
         shell: pwsh
         run: |
           if (-not (Test-Path artifacts/server/classrooms.json)) {
             Write-Error "Brak classrooms.json w artefakcie — serwer nie wystartuje w trybie AD."
             exit 1
           }
+          if (-not (Test-Path artifacts/server/appsettings.Production.json)) {
+            Write-Error "Brak appsettings.Production.json w artefakcie."
+            exit 1
+          }
+          $prod = Get-Content artifacts/server/appsettings.Production.json -Raw | ConvertFrom-Json
+          if ($prod.Security.Mode -ne 'Windows') { Write-Error "Produkcja musi używać Windows/Kerberos."; exit 1 }
+          if ($prod.Security.RequireSecureTransport -ne $true) { Write-Error "Produkcja musi wymagać wss."; exit 1 }
+          if ($prod.Security.Tokens.Count -gt 0) { Write-Error "Produkcja nie może zawierać tokenów."; exit 1 }
 
       - name: Publikacja klienta
         run: dotnet publish src/ZseAdmin.Client -c Release --no-build -o artifacts/client

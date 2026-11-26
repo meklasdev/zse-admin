@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Authentication;
 using ZseAdmin.Server.Abstractions;
 using ZseAdmin.Server.Configuration;
 using ZseAdmin.Server.Infrastructure.Actions;
@@ -47,7 +46,7 @@ var useActiveDirectoryAuthentication = string.Equals(
 // do ActiveDirectoryAuthenticator. Za IIS z uwierzytelnianiem Windows nagłówek przejmuje IIS.
 if (useActiveDirectoryAuthentication)
 {
-    builder.Services.AddAuthentication(Microsoft.AspNetCore.Authentication.NegotiateDefaults.AuthenticationScheme)
+    builder.Services.AddAuthentication(Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme)
         .AddNegotiate();
 }
 

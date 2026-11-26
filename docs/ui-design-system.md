@@ -97,8 +97,8 @@ obramowania i bez cienia**, żeby siatka 1px pozostała jednolita.
 | `Text.Meta` | 11 | Regular | opisy, liczniki, `freshness`, noty |
 
 - Krój: nowoczesny sans-serif — preferowane **Inter** / **Plus Jakarta Sans**, fallback natywny
-  **Segoe UI**. Decyzja o dołączeniu plików fontu (licencja OFL, rozmiar artefaktu) to **D9**;
-  bez niej obowiązuje `FontFamily` systemowy w jednym miejscu (`Theme.xaml`).
+  **Segoe UI**. **D9 = A (podjęte 2026-11-26):** obowiązuje natywny `FontFamily` systemowy w jednym
+  miejscu (`Theme.xaml`); nie dołączamy plików Inter / Plus Jakarta Sans (brak decyzji licencyjnej).
 - Hierarchię budujemy rozmiarem i wagą, nie kolorem ani kursywą. Interlinia i odstępy z siatki 8 px.
 - Tekst nie ma cienia, obrysu ani efektu „glow”.
 
@@ -154,8 +154,9 @@ pod kontrolką. Formularze nie „pływają” — brak cieni i podniesionych ka
 - Jedno źródło: `IconKey` + mapowanie w `Client.Core` (logika bez WPF) i `Styles/Icons.xaml`
   po stronie klienta. Rozmiary 16 / 20 / 24 px, linia 1–1.5 px, kolor dziedziczony z `Text`/`Accent`,
   **bez cieni i gradientów**.
-- Kandydat: `dotnet add package SvgIcons --version 0.1.10`. **Nie dodajemy go bez bramki
-  weryfikacji** — decyzja i alternatywy w [`adr/0009-ikony-svg.md`](adr/0009-ikony-svg.md),
+- **D8 = B (podjęte):** `dotnet add package SvgIcons --version 0.1.10` ma trafić do klienta w
+  ZAD-02. Bramka weryfikacji (`restore` + CI) pozostaje warunkiem; przy porażce fallback `Path`.
+  Decyzja i alternatywy w [`adr/0009-ikony-svg.md`](adr/0009-ikony-svg.md),
   realizacja w [`zadania/02-ikony-svg.md`](zadania/02-ikony-svg.md).
 - Minimalny zestaw: sala, pracownia, stacja, switch, patch panel, uplink, folder, plik,
   konto AD, konto lokalne, odśwież, ostrzeżenie, brak danych, akcje M4.
@@ -206,4 +207,5 @@ pod kontrolką. Formularze nie „pływają” — brak cieni i podniesionych ka
 
 Nie zmienia protokołu WebSocket, ról, uprawnień, modelu danych ani logiki serwera. Nowe widoki
 (topologia, pliki) muszą korzystać z istniejących mechanizmów świeżości, audytu i `CapabilityGuard`.
-Ewentualna zmiana ADR-0001 (dodanie zależności NuGet) jest osobną decyzją (**D8**).
+**D8 = B:** dodanie jednej zależności NuGet jest zatwierdzone; ADR-0001 ma adnotację, a ADR-0009
+status „przyjęte warunkowo” (domknięcie po zielonym CI).

@@ -3,6 +3,7 @@
 **Etap:** M8 · **Priorytet:** P2 · **Zależy od:** ZAD-01, ZAD-03, ZAD-07
 **Etykiety:** `enhancement`, `accessibility` · **Szacunek:** 2–3 dni
 **Styl:** [`../ui-design-system.md`](../ui-design-system.md) §3.1–§3.2, §3.4
+**Decyzje:** D4 = pliki widzą wszystkie role aplikacji; D6 = brak danych o plikach ucznia
 
 ## Kontekst
 
@@ -28,15 +29,17 @@ W v1 nie ma zapisu: upuszczenie pliku może co najwyżej pokazać jego metadane 
      „Tylko podgląd — zapis plików nie jest dostępny”, obsługa `DragOver`/`Drop` bez zapisu,
    - ekran „Brak dostępu” dla `forbidden` (ZAD-06), „Źródło niedostępne” dla
      `upstreamUnavailable` — z nazwą źródła i przyczyną, nigdy pusta lista.
-3. `MainViewModel` / `MainWindow.xaml`: zakładka „Pliki” widoczna tylko, gdy `welcome.capabilities`
-   zawiera `files.read` (ukrycie w UI **nie jest** zabezpieczeniem — serwer i tak odmawia, ZAD-06/07).
+3. `MainViewModel` / `MainWindow.xaml`: zakładka „Pliki” widoczna, gdy `welcome.capabilities`
+   zawiera `files.read` (**D4:** wszystkie trzy role aplikacji, więc widzi ją każdy zalogowany).
+   Ukrycie w UI **nie jest** zabezpieczeniem — serwer i tak odmawia uczniom (ZAD-06/07).
 4. Wyłącznie tokeny z ZAD-01 i `IconKey` z ZAD-02; żadnych nowych kolorów, cieni, gradientów.
 
 ## Poza zakresem
 
 - Pobieranie treści, podgląd dokumentów/zdjęć, upload, usuwanie, drag & drop zapisujący na dysk,
   wyszukiwarka, sortowanie po stronie serwera.
-- Wskazywanie, do którego ucznia należy plik (**D6**), dane osobowe w tooltipach.
+- Wskazywanie, do którego ucznia należy plik (**D6** = uczeń nie ma dostępu do aplikacji),
+  mapowanie plików na konta, dane osobowe w tooltipach.
 - Zmiana protokołu, ról, modelu danych.
 
 ## Kryteria akceptacji (Given / When / Then)
@@ -57,8 +60,9 @@ W v1 nie ma zapisu: upuszczenie pliku może co najwyżej pokazać jego metadane 
 6. **Given** 125% i 150% DPI oraz minimalne okno, **when** wyświetlę długie nazwy plików,
    **then** są skracane z `TextTrimming` i pełna nazwa jest dostępna w `ToolTip` /
    `AutomationProperties.Name`, bez rozjechania kolumn.
-7. **Given** konto bez `files.read`, **when** otworzę klienta, **then** zakładka „Pliki” nie jest
-   widoczna, a ręczne wysłanie `files.list` i tak kończy się `forbidden` (ZAD-06/07).
+7. **Given** konto bez `files.read` (uczeń odrzucony przez ZAD-06 albo starszy serwer), **when**
+   otworzę klienta, **then** zakładka „Pliki” nie jest widoczna, a ręczne wysłanie `files.list`
+   i tak kończy się `forbidden`; **given** Nauczyciel/ReadOnly, **then** zakładka jest widoczna (D4).
 
 ## Testy
 
@@ -72,11 +76,13 @@ W v1 nie ma zapisu: upuszczenie pliku może co najwyżej pokazać jego metadane 
 - [ ] Checklista [`../ui-design-system.md`](../ui-design-system.md) §5 odhaczona dla widoku plików.
 - [ ] `DropZone` pochodzi z ZAD-03 (bez duplikowania stylu); ikony z `IconKey`.
 - [ ] Żaden komunikat nie sugeruje zapisu ani „przenoszenia plików między stacjami”.
-- [ ] Decyzja **D6** zapisana; status w [`README.md`](README.md).
+- [ ] Decyzje **D4**, **D6** zapisane w notatkach §4; status w [`README.md`](README.md).
 
 ## Ryzyka i decyzje
 
-- **D6**: dopóki nie jest podjęta, UI nie może łączyć plików z kontami uczniów — nawet w tooltipie.
+- **D6 (podjęte):** uczeń nie ma dostępu do aplikacji, więc UI nie pokazuje żadnych danych
+  o plikach ucznia ani nie łączy plików z kontami — nawet w tooltipie. Zapis na udziale jest
+  wydzielony (D4), dlatego `DropZone` nadal mówi wprost „Tylko podgląd”.
 - `ToolTip` z pełną nazwą to wciąż dane z serwera: nie dodawać ścieżek bezwzględnych ani treści.
 - `DragOver`/`Drop` w WPF lubi domalować domyślny efekt — jawnie ustawić `DragDropEffects.None`
   i własny, 1px stan obramowania.

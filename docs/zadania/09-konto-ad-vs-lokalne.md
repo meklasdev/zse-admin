@@ -1,18 +1,20 @@
 # ZAD-09 — Konto AD vs profil/konto lokalne na stacji w historii logowań
 
-**Etap:** M8 · **Priorytet:** P1 · **Zależy od:** decyzje **D5**, **D6**
+**Etap:** M8 · **Priorytet:** P1 · **Zależy od:** — (**D5 = A**: domena + profil lokalny; **D6**: brak danych o plikach ucznia — podjęte)
 **Etykiety:** `enhancement`, `question`, `documentation` · **Szacunek:** 2–3 dni
 **Źródło:** [`../notatki-zamawiajacego-2026-11-26.md`](../notatki-zamawiajacego-2026-11-26.md) F5, §3.4
 
 ## Kontekst
 
 „Każdy uczeń ma swoje konto na AD ale nie przenoszą się pliki między stacjami czyli z AD robi się
-konto lokalne na stacji”. Najbardziej prawdopodobna interpretacja: logowanie do domeny **tworzy
-profil użytkownika na tej konkretnej stacji** (`C:\Users\<login>`), bo nie ma profili mobilnych ani
-przekierowania folderów. Konto AD nie „zamienia się” literalnie w konto lokalne — ale w dzienniku
-zdarzeń mogą występować też logowania do kont **lokalnych** na stacji, i te dwa przypadki trzeba
-rozróżniać (**D5**). Aplikacja nie może sugerować, że pliki ucznia są na serwerze albo że
-„podążają” za kontem między stacjami (**D6**).
+konto lokalne na stacji”. **D5 = A (potwierdzone przez zamawiającego):** logowanie do domeny
+**tworzy profil użytkownika na tej konkretnej stacji** (`C:\Users\<login>`), bo nie ma profili
+mobilnych ani przekierowania folderów — pliki zostają na dysku tej stacji. Konto AD nie „zamienia
+się” literalnie w konto lokalne; w dzienniku mogą jednak występować logowania do kont **lokalnych**
+(np. serwisowych), więc `accountScope` nadal rozróżnia `domain` / `local` / `unknown` bez zgadywania.
+**D6:** uczeń nie ma dostępu do aplikacji, więc UI nie pokazuje żadnych danych o plikach ucznia;
+notatka „Pliki użytkownika pozostają na stacji — brak profili mobilnych” jest informacją techniczną
+dla administratora, nie wskazaniem na konkretnego ucznia.
 
 ## Zakres
 
@@ -41,7 +43,7 @@ rozróżniać (**D5**). Aplikacja nie może sugerować, że pliki ucznia są na 
 ## Poza zakresem
 
 - Wdrożenie profili mobilnych, folderów przekierowanych, roamingowych kont, synchronizacji plików.
-- Kopiowanie/odczyt plików użytkownika, wiązanie plików z `/pepsi` z kontem ucznia (**D6**).
+- Kopiowanie/odczyt plików użytkownika, wiązanie plików z `/pepsi` z kontem ucznia (**D6** podjęte).
 - Zmiana retencji 30 dni (ADR-0006), aktywnych sesji, modelu zdarzeniowego, nowa baza danych.
 - Zmiana `AdUserDto` — zadanie dotyczy **zdarzenia logowania na stacji**, nie kartoteki konta AD.
 
@@ -54,7 +56,8 @@ rozróżniać (**D5**). Aplikacja nie może sugerować, że pliki ucznia są na 
 3. **Given** zdarzenie bez `TargetDomainName` albo z nieznaną domeną, **when** jest zwracane,
    **then** `accountScope = "unknown"` z etykietą „źródło konta nieznane” — bez domysłu „domenowe”.
 4. **Given** ekran historii logowań, **when** go otworzę, **then** widoczna jest notatka o braku
-   przenoszenia plików między stacjami i nie ma żadnego komunikatu typu „pliki ucznia na serwerze”.
+   przenoszenia plików między stacjami, nie ma komunikatu typu „pliki ucznia na serwerze”
+   ani żadnych danych o plikach ucznia (D6).
 5. **Given** klient w wersji M4, **when** dostanie `LoginEventDto` z nowym polem, **then** ignoruje
    je i działa bez zmian (`protocolVersion = 1`).
 6. **Given** historię mieszaną (konta domenowe i lokalne na jednej stacji), **when** filtruję po
@@ -77,13 +80,13 @@ rozróżniać (**D5**). Aplikacja nie może sugerować, że pliki ucznia są na 
 - [ ] `AccountScope` jest opcjonalny i udokumentowany jako rozszerzenie v1.
 - [ ] Wszystkie źródła logowań M2 ustalają pole w ten sam sposób; brak danych nie jest zgadywany.
 - [ ] Notatka o plikach lokalnych widoczna w UI; brak mapowania plików na uczniów.
-- [ ] Decyzje **D5**, **D6** zapisane; `dotnet test` zielone; status w [`README.md`](README.md).
+- [ ] Decyzje **D5 = A**, **D6** zapisane w notatkach §4; `dotnet test` zielone; status w [`README.md`](README.md).
 
 ## Ryzyka i decyzje
 
-- **D5** jest kluczowa: jeśli w szkole faktycznie zakładane są **osobne konta lokalne** (a nie
-  tylko profil domenowy), trzeba doprecyzować regułę rozpoznawania i może pojawić się potrzeba
-  mapowania `SAM` → konto AD; bez decyzji zostajemy przy `Unknown` dla przypadków niepewnych.
+- **D5 = A (podjęte):** profil domenowy tworzony lokalnie. Jeśli admin zgłosi jednak osobne konta
+  lokalne, regułę rozpoznawania zmieniamy w jednym miejscu (kolektor M2); dla przypadków
+  niepewnych i tak zostajemy przy `Unknown`.
 - `TargetDomainName` bywa pusty przy logowaniu buforowanym albo w WEF — nie traktować tego jako
   błąd źródła, tylko `Unknown` + nota.
 - Etykiety nie mogą ujawniać dodatkowych danych osobowych; `Unknown` nie jest powodem do audytu

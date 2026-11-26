@@ -79,6 +79,7 @@ co faktycznie działa.
 - [ ] Szablon issue opublikowany; `docs/zadania/README.md` ma aktualne statusy.
 - [ ] Wszystkie dokumenty z listy w Zakresie punkcie 4 zaktualizowane; `git diff --check` czysty.
 - [ ] Ostatni przebieg CI dla gałęzi zielony, wynik odnotowany w [`../roadmapa.md`](../roadmapa.md).
+- [ ] Decyzje D1–D10 i statusy zadań widoczne w notatkach §4 oraz [`README.md`](README.md).
 
 ## Ryzyka i decyzje
 

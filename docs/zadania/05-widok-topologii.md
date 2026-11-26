@@ -2,7 +2,7 @@
 
 **Etap:** M7 · **Priorytet:** P1 · **Zależy od:** ZAD-01, ZAD-02, ZAD-04
 **Etykiety:** `enhancement`, `accessibility` · **Szacunek:** 4–5 dni
-**Źródło:** [`../notatki-zamawiajacego-2026-11-26.md`](../notatki-zamawiajacego-2026-11-26.md) F2, decyzje **D2**, **D7**
+**Źródło:** [`../notatki-zamawiajacego-2026-11-26.md`](../notatki-zamawiajacego-2026-11-26.md) F2 · **Decyzje:** D2 = gotowe grafiki urządzeń + diagram ułożenia + diagram połączeń; D7 = wszystkie zalogowane role
 
 ## Kontekst
 
@@ -12,6 +12,11 @@ przychodzi uplink. Dane pochodzą z `topology.json` (ZAD-04), stan stacji z `com
 Widok musi być płaski: prostokątne węzły z 1px obramowaniem, łącza jako linie 1px, status
 oznaczony **kolorem obramowania + tekstem**, nigdy poświatą. Obowiązuje
 [`../ui-design-system.md`](../ui-design-system.md).
+
+**D2 (doprecyzowane przez zamawiającego):** „zdj” oznacza **gotowe rysunki komputerów/urządzeń
+w stylu Packet Tracer** (nie zdjęcia z serwerowni), z których składamy **dwa** widoki:
+(1) **układ/ułożenie komputerów w sali** (rzędy, stanowiska) oraz (2) **diagram połączeń** z portami.
+Źródło grafik: własny zestaw wektorowy w repo, chyba że szkoła dostarczy pliki (§4.1 notatek).
 
 ## Zakres
 
@@ -28,9 +33,14 @@ oznaczony **kolorem obramowania + tekstem**, nigdy poświatą. Obowiązuje
    wg `NetworkNodeKind`, łącza jako `Polyline`/`Path` 1px, etykiety portów, legenda, breadcrumb
    sal, zoom 50–200% i pan (bez efektów „glow”), klik węzeł stacji → szczegóły komputera
    w istniejącym prawym panelu (`SelectedComputer` w `MainViewModel`).
-4. Integracja: zakładka „Topologia” w `MainWindow.xaml`, style w `Styles/Topology.xaml` wyłącznie
+4. **Grafiki urządzeń i układ sali (D2):** wektorowy zestaw rysunków w
+   `src/ZseAdmin.Client/Assets/Topology/` (stacja, switch, patch panel, router/uplink) w konwencji
+   Packet Tracer — 1px, jeden kolor, bez cieni i gradientów; mapowanie
+   `NetworkNodeKind → IconKey` i opcjonalny `imageRef` z `topology.json`. Osobny, płaski **diagram
+   ułożenia stanowisk w sali** (rzędy/stanowiska) obok diagramu połączeń z portami.
+5. Integracja: zakładka „Topologia” w `MainWindow.xaml`, style w `Styles/Topology.xaml` wyłącznie
    z tokenów ZAD-01, ikony wyłącznie z `IconKey` (ZAD-02).
-5. Dokumentacja: [`../uruchomienie.md`](../uruchomienie.md) (jak uzupełnić `topology.json`),
+6. Dokumentacja: [`../uruchomienie.md`](../uruchomienie.md) (jak uzupełnić `topology.json`),
    [`../ui-design-system.md`](../ui-design-system.md) (jeśli pojawi się nowy wzorzec kontrolki),
    zrzut ekranu w `docs/` tylko jeśli nie jest duży (preferować PR).
 
@@ -38,8 +48,8 @@ oznaczony **kolorem obramowania + tekstem**, nigdy poświatą. Obowiązuje
 
 - Edycja topologii w UI, zapis `topology.json` z aplikacji, automatyczne wykrywanie łączy
   (LLDP/SNMP), monitoring stanu portów w czasie rzeczywistym.
-- Zdjęcia/foto szaf i patch paneli (**D2**) — opcjonalny `attachmentRef` z ZAD-04 pozostaje
-  niewypełniony do czasu decyzji.
+- Fotografie prawdziwej szafy/patch paneli (**D2** = gotowe rysunki, nie foto); wczytywanie
+  własnych plików graficznych szkoły — do doprecyzowania w §4.1 notatek.
 - Zmiana protokołu, nowe uprawnienia, nowa baza danych, zmiana `MainViewModel` w zakresie akcji M4.
 
 ## Kryteria akceptacji (Given / When / Then)
@@ -55,13 +65,15 @@ oznaczony **kolorem obramowania + tekstem**, nigdy poświatą. Obowiązuje
 4. **Given** zoom 50% i 200% oraz przesuwanie, **when** korzystam z diagramu, **then** linie
    pozostają 1px, etykiety są czytelne, a w UI nie pojawia się cień, rozmycie ani animacja
    poświaty.
-5. **Given** nauczyciel z `classroomScope` i decyzja **D7**, **when** otworzy widok, **then** widzi
-   wyłącznie sale z serwera (UI nie filtruje samodzielnie danych, których nie powinien dostać),
-   a przy `forbidden` widzi ekran „Brak dostępu”, nie puste płótno.
+5. **Given** Nauczyciel lub ReadOnly (**D7 = C**), **when** otworzy widok, **then** widzi wszystkie
+   sale (bez filtra `classroomScope` dla topologii); **given** rola bez `topology.read` albo uczeń,
+   **then** ekran „Brak dostępu”, nie puste płótno.
 6. **Given** `error: upstreamUnavailable` dla `topology.json`, **when** ładuję widok, **then**
    widzę nazwę źródła i przyczynę, a nie pusty diagram sugerujący „brak połączeń”.
 7. **Given** `TopologyLayout.Compute` z tym samym DTO i opcjami, **when** wywołam ją dwukrotnie,
    **then** wynik jest identyczny (determinizm), a testy nie wymagają WPF ani wątku UI.
+8. **Given** sala z 12 stanowiskami, **when** otworzę widok, **then** widzę gotowe rysunki urządzeń
+   (1px, bez cieni) oraz diagram ułożenia komputerów w rzędach obok diagramu połączeń z portami.
 
 ## Testy
 
@@ -77,11 +89,13 @@ oznaczony **kolorem obramowania + tekstem**, nigdy poświatą. Obowiązuje
 - [ ] Nowy widok używa wyłącznie tokenów ZAD-01 i `IconKey` ZAD-02.
 - [ ] Checklista [`../ui-design-system.md`](../ui-design-system.md) §5 odhaczona; zrzuty w PR.
 - [ ] `docs/roadmapa.md` i [`README.md`](README.md) odnotowują M7; status w [`README.md`](README.md).
+- [ ] D2: grafiki urządzeń + diagram ułożenia sali + diagram połączeń; D7: brak filtra sal dla ról aplikacji.
 
 ## Ryzyka i decyzje
 
-- **D2** (zdjęcia) i **D7** (zakres nauczyciela) nie blokują startu: realizujemy diagram, a
-  załączniki/filtr roli zostawiamy jako jeden, jawny punkt rozszerzenia.
+- **D2 = B, D7 = C (podjęte):** realizujemy grafiki urządzeń, diagram ułożenia sali i diagram
+  połączeń dla wszystkich zalogowanych ról. Jedynym punktem do doprecyzowania jest źródło plików
+  graficznych (§4.1 notatek) — zostawiamy `imageRef` jako jawne rozszerzenie.
 - Duża liczba węzłów w `Canvas` może zepsuć responsywność — rozważyć wirtualizację / grupowanie
   rzędów i limit widocznych etykiet; nie kosztem czytelności portów.
 - Łatwo „udekorować” diagram kolorowymi kablami i cieniami węzłów: `medium` (ethernet/fiber)

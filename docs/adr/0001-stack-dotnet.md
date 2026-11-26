@@ -29,3 +29,12 @@ Serwer działa na maszynie z Active Directory (Windows Server 2016). Klient jest
 **Negatywne:** klient tylko na Windows; WPF wymaga Desktop Experience (nie działa na Server Core); .NET 8 na Server 2016 wymaga instalacji runtime i jest zależny od cyklu życia systemu (wsparcie do 2027-01).
 
 **Neutralne:** logika klienta jest oddzielona od WPF, więc ewentualna migracja na Avalonię nie dotknie protokołu ani ViewModeli.
+
+## Adnotacja — 2026-11-26 (decyzja D8 = B)
+
+Zamawiający zatwierdził **jedną** zewnętrzną zależność NuGet w kliencie: `SvgIcons 0.1.10`
+([ADR-0009](0009-ikony-svg.md), [`zadania/02-ikony-svg.md`](../zadania/02-ikony-svg.md)).
+Zdanie „WPF bez dodatkowych zależności NuGet” z sekcji *Konsekwencje* należy odtąd czytać jako
+„bez zależności **poza jedną, jawnie zatwierdzoną i zweryfikowaną w CI**”. Do czasu zielonego
+`dotnet restore`/buildu w ZAD-02 repozytorium nadal nie zawiera tej referencji. Pozostałe ustalenia
+(.NET 8, WPF, wspólne kontrakty, brak własnej bazy) pozostają bez zmian.

@@ -1,6 +1,6 @@
 # ADR-0009: Ikony SVG w kliencie WPF — bramka weryfikacji dla `SvgIcons 0.1.10`
 
-**Status:** propozycja (do zatwierdzenia w ramach ZAD-02)
+**Status:** przyjęte warunkowo — decyzja **D8 = B** z 2026-11-26; domknięcie po zielonym `dotnet restore` + buildzie w CI (ZAD-02)
 **Data:** 2026-11-26
 **Źródło:** [`notatki-zamawiajacego-2026-11-26.md`](../notatki-zamawiajacego-2026-11-26.md) F6, decyzja **D8**
 **Powiązane:** [`../ui-design-system.md`](../ui-design-system.md) §3.3, [`../zadania/02-ikony-svg.md`](../zadania/02-ikony-svg.md), [ADR-0001](0001-stack-dotnet.md)
@@ -32,9 +32,11 @@ istnienia, zgodności TFM ani licencji paczki**. Dodanie referencji „na wiarę
 
 ## Decyzja
 
-**Nie dodajemy paczki do `*.csproj`, dopóki nie przejdzie bramki weryfikacji (ZAD-02).**
+**D8 = B (podjęte przez zamawiającego 2026-11-26): dodajemy `SvgIcons 0.1.10` do klienta WPF.**
+W repozytorium nie ma jeszcze referencji — ten etap to dokumentacja. ZAD-02 wykonuje
+`dotnet add src/ZseAdmin.Client/ZseAdmin.Client.csproj package SvgIcons --version 0.1.10`.
 
-Bramka sprawdza i zapisuje wynik w tym ADR:
+Bramka weryfikacji **pozostaje obowiązkowym krokiem** (chroni CI, nie zmienia decyzji):
 
 | # | Sprawdzenie | Warunek przejścia |
 |---|---|---|
@@ -48,12 +50,11 @@ Bramka sprawdza i zapisuje wynik w tym ADR:
 
 Wynik:
 
-- **Bramka przechodzi** → ADR otrzymuje status *przyjęte*, paczka trafia wyłącznie do
-  `src/ZseAdmin.Client/ZseAdmin.Client.csproj`, w ADR-0001 dopisujemy adnotację o jednej
-  kontrolowanej zależności, a `Styles/Icons.xaml` mapuje `IconKey` na zasoby paczki.
-- **Bramka nie przechodzi** → status *odrzucone*, paczki nie ma w repozytorium; ikony są lokalnymi
-  geometriami `Path` w `Styles/Icons.xaml` (źródło SVG → XAML w repo, bez zależności). ADR-0001
-  pozostaje bez zmian.
+- **Bramka przechodzi** → status *przyjęte*, paczka wyłącznie w `ZseAdmin.Client.csproj`, adnotacja
+  w ADR-0001 o jednej kontrolowanej zależności, `Styles/Icons.xaml` mapuje `IconKey` na zasoby paczki.
+- **Bramka nie przechodzi** → status *odrzucone z powodem*, paczki nie ma w repozytorium, ikony są
+  lokalnymi geometriami `Path` w `Styles/Icons.xaml`; ADR-0001 bez zmian. **Nie wymaga to ponownej
+  decyzji zamawiającego** — fallback jest wprost dopuszczony w D8 = B w celu utrzymania zielonego CI.
 
 W obu wariantach obowiązuje jedno źródło prawdy: `IconKey` w `ZseAdmin.Client.Core` (bez WPF)
 i jedno mapowanie w kliencie. Widoki nie znają nazw plików ani API paczki.
@@ -62,8 +63,8 @@ i jedno mapowanie w kliencie. Widoki nie znają nazw plików ani API paczki.
 
 | Alternatywa | Dlaczego odrzucona / odłożona |
 |---|---|
-| Dodać `SvgIcons 0.1.10` od razu | niezweryfikowana zależność może nie istnieć, nie wspierać WPF i zepsuć CI; narusza ADR-0001 bez decyzji |
-| Lokalne `Path`/`Geometry` w `ResourceDictionary` (fallback) | przyjęte jako wariant bezpieczny; wymaga ręcznej konwersji SVG → XAML, ale zero zależności i pełna kontrola nad stylem |
+| Dodać `SvgIcons 0.1.10` bez weryfikacji w CI | **odrzucone:** niezweryfikowana zależność może nie istnieć, nie wspierać WPF i zepsuć `dotnet restore`; decyzja D8 = B zachowuje bramkę |
+| Lokalne `Path`/`Geometry` w `ResourceDictionary` | **przyjęte jako plan B** (D8 = B + bramka): wymaga konwersji SVG → XAML, ale daje zero zależności, pełną kontrolę nad stylem i zielone CI |
 | Krok builda konwertujący SVG → XAML | dobry kompromis przy większej liczbie ikon; dodaje narzędzie do CI — rozważyć, gdy zestaw urośnie |
 | `Segoe MDL2 Assets` / Segoe Fluent Icons | natywne, ale zależne od wersji Windows i ubogie w ikony sieciowe (switch, patch panel) |
 | Bitmapy PNG z zestawu zewnętrznego | rozmycie przy 125/150% DPI, brak kontroli koloru, łamie zasadę wektorowości i „zero glow” |
@@ -82,6 +83,7 @@ prezentacji. Minimalny zestaw ikon i wymóg `AutomationProperties.Name` opisuje
 
 ## Do uzupełnienia po weryfikacji (ZAD-02)
 
+- **Decyzja D8 = B jest już wpisana** (odpowiedź zamawiającego, 2026-11-26) — nie pytamy ponownie.
 - Wyniki punktów 1–7 z datą i wersją SDK.
-- Status: `przyjęte` / `odrzucone`, nazwa wariantu (`SvgIcons` albo `Path`).
+- Status końcowy: `przyjęte` / `odrzucone z powodem`, nazwa wariantu (`SvgIcons` albo `Path`).
 - Jeśli przyjęte: adnotacja w ADR-0001 + wpis do [`../uruchomienie.md`](../uruchomienie.md) o restore.

@@ -151,11 +151,11 @@ public sealed class LdapInventoryTests
     }
 
     [Fact]
-    public void Konto_w_ad_nieistniejace_daje_null_a_nieblad()
+    public async Task Konto_w_ad_nieistniejace_daje_null_a_nieblad()
     {
         var reader = CreateReader(new FakeLdapReader());
 
-        var user = reader.FindUserAsync("nie.ma.takiego").GetAwaiter().GetResult();
+        var user = await reader.FindUserAsync("nie.ma.takiego");
 
         Assert.Null(user);
     }
@@ -181,7 +181,7 @@ public sealed class LdapInventoryTests
     }
 
     [Fact]
-    public void Komputer_bez_wczesniejszej_obserwacji_to_brak_danych()
+    public async Task Po_udanym_sprawdzeniu_stacja_ma_stan_i_czas_obserwacji()
     {
         var inventory = new FakeInventory(new AdInventory(
             new[] { new AdComputer("KS-101-01", "CN=KS-101-01,OU=PRAC101", "prac-101", "Pracownia 101", "10.0.0.1", "Windows 10", null) },
@@ -190,15 +190,16 @@ public sealed class LdapInventoryTests
 
         var directory = new AdComputerDirectory(inventory, new FakeProbe(), new FakeClock(Now), new StatusProbeOptions());
 
-        var result = directory.ListAsync(null).GetAwaiter().GetResult();
+        var result = await directory.ListAsync(null);
         var computer = Assert.Single(result.Items);
 
-        Assert.Equal(ComputerStatus.Unknown, computer.Status);
-        Assert.Null(computer.StatusObservedAtUtc);
+        Assert.Equal(ComputerStatus.Online, computer.Status);
+        Assert.Equal(Now, computer.StatusObservedAtUtc);
+        Assert.Equal(DataCompleteness.Complete, result.Metadata.Completeness);
     }
 
     [Fact]
-    public void Stacja_bez_odpowiedzi_jest_offline_z_czasem_obserwacji()
+    public async Task Stacja_bez_odpowiedzi_jest_offline_z_czasem_obserwacji()
     {
         var inventory = new FakeInventory(new AdInventory(
             new[] { new AdComputer("KS-101-01", "CN=KS-101-01,OU=PRAC101", "prac-101", "Pracownia 101", "10.0.0.1", "Windows 10", null) },
@@ -207,14 +208,14 @@ public sealed class LdapInventoryTests
 
         var directory = new AdComputerDirectory(inventory, new FakeProbe(online: false), new FakeClock(Now), new StatusProbeOptions());
 
-        var computer = Assert.Single(directory.ListAsync(null).GetAwaiter().GetResult().Items);
+        var computer = Assert.Single((await directory.ListAsync(null)).Items);
 
         Assert.Equal(ComputerStatus.Offline, computer.Status);
         Assert.Equal(Now, computer.StatusObservedAtUtc);
     }
 
     [Fact]
-    public void Truncation_inwentarza_oznacza_dane_jako_czesciowe()
+    public async Task Truncation_inwentarza_oznacza_dane_jako_czesciowe()
     {
         var inventory = new FakeInventory(new AdInventory(
             new[] { new AdComputer("KS-101-01", "CN=KS-101-01,OU=PRAC101", "prac-101", "Pracownia 101", "10.0.0.1", "Windows 10", null) },
@@ -223,14 +224,14 @@ public sealed class LdapInventoryTests
 
         var directory = new AdComputerDirectory(inventory, new FakeProbe(), new FakeClock(Now), new StatusProbeOptions());
 
-        var result = directory.ListAsync(null).GetAwaiter().GetResult();
+        var result = await directory.ListAsync(null);
 
         Assert.Equal(DataCompleteness.Partial, result.Metadata.Completeness);
         Assert.Contains("5000", result.Metadata.Note);
     }
 
     [Fact]
-    public void Zmiana_stanu_jest_zwracana_raz_a_nie_w_kazdym_cyklu()
+    public async Task Zmiana_stanu_jest_zwracana_raz_a_nie_w_kazdym_cyklu()
     {
         var inventory = new FakeInventory(new AdInventory(
             new[] { new AdComputer("KS-101-01", "CN=KS-101-01,OU=PRAC101", "prac-101", "Pracownia 101", "10.0.0.1", "Windows 10", null) },
@@ -239,12 +240,12 @@ public sealed class LdapInventoryTests
 
         var directory = new AdComputerDirectory(inventory, new FakeProbe(online: true), new FakeClock(Now), new StatusProbeOptions());
 
-        Assert.Single(directory.RefreshStatusesAsync().GetAwaiter().GetResult());
-        Assert.Empty(directory.RefreshStatusesAsync().GetAwaiter().GetResult());
+        Assert.Single(await directory.RefreshStatusesAsync());
+        Assert.Empty(await directory.RefreshStatusesAsync());
     }
 
     [Fact]
-    public void Kolejne_zadania_korzystaja_z_migawki_stanu_a_nie_pinguja_ciagle()
+    public async Task Kolejne_zadania_korzystaja_z_migawki_stanu_a_nie_pinguja_ciagle()
     {
         var inventory = new FakeInventory(new AdInventory(
             new[] { new AdComputer("KS-101-01", "CN=KS-101-01,OU=PRAC101", "prac-101", "Pracownia 101", "10.0.0.1", "Windows 10", null) },
@@ -254,14 +255,14 @@ public sealed class LdapInventoryTests
         var probe = new FakeProbe();
         var directory = new AdComputerDirectory(inventory, probe, new FakeClock(Now), new StatusProbeOptions());
 
-        directory.ListAsync(null).GetAwaiter().GetResult();
-        directory.ListAsync(null).GetAwaiter().GetResult();
+        await directory.ListAsync(null);
+        await directory.ListAsync(null);
 
         Assert.Equal(1, probe.Calls);
     }
 
     [Fact]
-    public void Przerwane_sprawdzanie_nie_oznacza_stacji_jako_offline()
+    public async Task Przerwane_sprawdzanie_nie_oznacza_stacji_jako_offline()
     {
         var inventory = new FakeInventory(new AdInventory(
             new[] { new AdComputer("KS-101-01", "CN=KS-101-01,OU=PRAC101", "prac-101", "Pracownia 101", "10.0.0.1", "Windows 10", null) },
@@ -271,7 +272,7 @@ public sealed class LdapInventoryTests
         // Pusty wynik = budżet sprawdzania minął, zanim stacja odpowiedziała.
         var directory = new AdComputerDirectory(inventory, new FakeProbe(empty: true), new FakeClock(Now), new StatusProbeOptions());
 
-        var result = directory.ListAsync(null).GetAwaiter().GetResult();
+        var result = await directory.ListAsync(null);
         var computer = Assert.Single(result.Items);
 
         Assert.Equal(ComputerStatus.Unknown, computer.Status);

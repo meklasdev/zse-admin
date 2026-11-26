@@ -35,11 +35,16 @@ public sealed class FreshnessService
         var age = _clock.UtcNow - observedAt;
         var isStale = age > maxAge;
 
+        // Nieaktualne dane nie są kompletne w sensie „potwierdzone teraz” — mówimy to jawnie.
+        var effectiveCompleteness = isStale && metadata.Completeness == DataCompleteness.Complete
+            ? DataCompleteness.Partial
+            : metadata.Completeness;
+
         return new DataFreshnessDto(
             source,
             observedAt,
             isStale,
-            metadata.Completeness,
+            effectiveCompleteness,
             metadata.Note ?? (isStale
                 ? $"Dane starsze niż {maxAge.TotalSeconds:0} s (wiek {age.TotalSeconds:0} s)."
                 : null));

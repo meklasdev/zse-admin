@@ -57,22 +57,48 @@ Rozdzielenie `Client.Core` od `Client` jest celowe: logika jest testowalna bez W
 - Repozytoria są singletonami; stan w pamięci chroniony jest `lock`.
 - Klient wykonuje żądania z puli wątków; zmiany kolekcji do UI idą zawsze przez `IUiDispatcher` (w WPF `Dispatcher.BeginInvoke`).
 
-## 5. Plan adapterów danych (etap M1–M2)
+## 5. Adaptery danych
 
-| Interfejs | Implementacja docelowa | Uwagi |
+Stan na dziś: **M1 zaimplementowane** (ADR-0005), M2 w planie.
+
+| Interfejs | Implementacja M1 | Uwagi |
 |---|---|---|
-| `IClassroomDirectory` | konfiguracja `classrooms.json` + LDAP (OU) | reguła mapowania: lista OU → pracownia; brak dopasowania → „poza pracownią” |
-| `IComputerDirectory` | LDAP `objectCategory=computer` + sprawdzanie dostępności | paginacja LDAP, ograniczenie atrybutów, cache IP |
-| `IComputerDirectory.RefreshStatusesAsync` | ICMP + fallback SMB/WMI | wynik zapisywany z metodą i czasem obserwacji |
-| `ILoginLog` | dzienniki zabezpieczeń stacji (4624/4634/4625) lub WEF | brak dostępu do części stacji → `Completeness = Partial` + nota |
-| `IAdDirectory` | LDAP: konto, grupy (`tokenGroups`), OU, `lastLogonTimestamp` | jawnie oznaczyć, że `lastLogonTimestamp` bywa opóźniony do 14 dni |
+| `IClassroomDirectory` | `AdClassroomDirectory` (konfiguracja + liczniki z AD) | pracownia istnieje także wtedy, gdy OU jest puste |
+| `IComputerDirectory` | `AdComputerDirectory` (AD + `IComputerStatusProbe`) | paginacja LDAP, limit `MaxComputers`, cache TTL, „poza pracownią” bez filtra |
+| `IComputerDirectory.RefreshStatusesAsync` | ICMP (`StatusProbe`) | równoległość ograniczona; brak odpowiedzi = `offline` z czasem, brak adresu = `unknown` |
+| `ILoginLog` | `MockLoginLog` (dev) / `UnavailableLoginLog` (produkcja do M2) | pusta lista nie udaje braku zdarzeń |
+| `IAdDirectory` | `AdDirectory` (LDAP `tokenGroups`) | `lastLogonTimestamp` bywa opóźniony do 14 dni |
+
+Porty pomocnicze: `ILdapDirectoryReader` (jedyna warstwa znająca LDAP), `IAdInventoryReader`
+(wykrywanie komputerów/kont), `IComputerStatusProbe` (sieć). Dzięki temu całą interpretację
+AD można testować bez kontrolera domeny.
+
+### 5.1 Wybór źródła danych
+
+```
+ZseAdmin:UseMockData = true   → Mock* (development, CI, brak domeny)
+ZseAdmin:UseMockData = false  → LDAP + ICMP; wymaga poprawnych classrooms.json i Directory:*
+```
+
+Tryb przejściowy M1.5: `UseMockData=false` + `UseMockDataForLogins=true` — prawdziwe AD,
+przykładowe logowania, żeby dopracować UI przed M2.
+
+### 5.2 Zachowanie przy błędach źródła
+
+| Sytuacja | Wynik |
+|---|---|
+| LDAP nieosiągalny / bind nieudany | `error: upstreamUnavailable` z nazwą źródła (`MessageRouter` zamienia `SourceUnavailableException`) |
+| Komputer nie odpowiada na ICMP | `status = offline` + `statusObservedAtUtc` (nie znaczy „nie istnieje”) |
+| Brak adresu do sprawdzenia | `status = unknown`, poprzednia obserwacja zachowana |
+| Inwentarz obcięty limitem | `completeness = partial` + nota z liczbami |
+| Brak `classrooms.json` lub kolizja OU | serwer **nie startuje**, błąd na stderr + kod wyjścia 1 |
 
 Zasada: **adapter nie ukrywa problemów źródła**. Jeśli nie ma dostępu do dziennika stacji, zwraca `Unavailable` z powodem, a nie pustą listę udającą „nikt się nie logował”.
 
 ## 6. Definicja pracowni
 
 ```json
-// classrooms.json — do wdrożenia w M1
+// src/ZseAdmin.Server/classrooms.json — wczytywany przy starcie (M1)
 [
   {
     "id": "prac-101",
@@ -93,6 +119,13 @@ Reguły:
 2. Komputer poza listą **nie znika** — trafia do grupy „poza pracownią”.
 3. Jedno OU może należeć tylko do jednej pracowni; kolizja to błąd konfiguracji zgłaszany przy starcie.
 4. Nazwa pracowni nie jest wyprowadzana z OU — OU bywa techniczne (`OU=KLIENTY-2020`).
+5. Przy zagnieżdżonych OU wygrywa najbardziej szczegółowe dopasowanie (np. `OU=PRAC101` przed `OU=Pracownie`).
+6. Konfiguracja jest walidowana przy starcie: brak `id`, brak `name`, pusta lista OU i DN
+   niebędący distinguishedName to błędy. Serwer nie startuje z błędną mapą, bo „cicha”
+   pracownia bez komputerów jest gorsza niż widoczny błąd.
+
+Implementacja: `Infrastructure/Classrooms/ClassroomMap.cs` (`Create` waliduje, `Resolve` mapuje).
+Testy: `tests/ZseAdmin.Tests/ClassroomMapTests.cs`.
 
 ## 7. Odporność i stany błędów
 

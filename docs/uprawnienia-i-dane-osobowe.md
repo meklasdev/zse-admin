@@ -33,7 +33,9 @@ Definicje w kodzie: `src/ZseAdmin.Server/Security/Capability.cs` i `RoleCatalog.
 Wymagania dodatkowe przy wdrożeniu:
 
 - transport tylko `wss` z certyfikatem,
-- konto usługi serwera: odczyt wybranych OU, „Event Log Readers” na stacjach, **bez** praw administratora domeny,
+- konto usługi serwera: odczyt wybranych OU, „Event Log Readers” na stacjach, **bez** praw administratora domeny
+  (etap M1: `ZseAdmin:Directory:ServiceAccountUser` lub konto procesu; `tokenGroups` wymaga prawa
+  czytania konstruowanych atrybutów — bez niego serwer wraca do `memberOf` i traci zagnieżdżenie grup),
 - logowanie do serwera tylko z podsieci administracyjnej.
 
 ## 4. Audyt operacji

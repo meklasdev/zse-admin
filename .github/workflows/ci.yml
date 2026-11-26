@@ -32,6 +32,14 @@ jobs:
       - name: Publikacja serwera
         run: dotnet publish src/ZseAdmin.Server -c Release --no-build -o artifacts/server
 
+      - name: Kontrola artefaktu (definicja pracowni w publikacji)
+        shell: pwsh
+        run: |
+          if (-not (Test-Path artifacts/server/classrooms.json)) {
+            Write-Error "Brak classrooms.json w artefakcie — serwer nie wystartuje w trybie AD."
+            exit 1
+          }
+
       - name: Publikacja klienta
         run: dotnet publish src/ZseAdmin.Client -c Release --no-build -o artifacts/client
 

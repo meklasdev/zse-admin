@@ -118,8 +118,8 @@ Poniżej domyślne rozstrzygnięcia przyjęte w szablonie — każde wymaga potw
 
 | Etap | Zakres | Nakład |
 |---|---|---|
-| M0 | Szkielet: kontrakty, serwer WS, klient WPF, dane przykładowe, testy, CI (ten commit) | 2–3 dni |
-| M1 | Adapter AD (LDAP): komputery, konta, grupy, mapowanie pracowni z konfiguracji | 5–8 dni |
+| M0 | Szkielet: kontrakty, serwer WS, klient WPF, dane przykładowe, testy, CI (zrobione) | 2–3 dni |
+| M1 | Adapter AD (LDAP): komputery, konta, grupy, mapowanie pracowni z konfiguracji (**zrobione**) | 5–8 dni |
 | M2 | Logi logowań: zbieranie, filtr, kompletność, retencja | 8–12 dni |
 | M3 | Uprawnienia produkcyjne (Kerberos/grupy AD), audyt operacji | 4–6 dni |
 | M4 | Akcje na stacjach (restart, blokada) + potwierdzenia | 5–10 dni |
@@ -140,6 +140,22 @@ Razem: **ok. 27–44 dni roboczych** do wersji produkcyjnej bez akcji na stacjac
 7. **P2 — dodać „ostatnia znana obserwacja”** do każdego elementu UI, także po restarcie serwera (cache).
 
 ---
+
+## 10a. Stan implementacji po etapie M1
+
+| Obszar | Stan | Gdzie |
+|---|---|---|
+| Protokół, serwer WS, klient WPF, świeżość, role | zrobione (M0) | `src/` |
+| Adapter LDAP: komputery, konta, grupy `tokenGroups`, paginacja, limity | zrobione (M1) | `Infrastructure/Ldap/` |
+| Definicja pracowni i mapowanie OU (walidacja przy starcie) | zrobione (M1) | `classrooms.json`, `Infrastructure/Classrooms/` |
+| Sprawdzanie dostępności stacji (ICMP z budżetem czasu) | zrobione (M1) | `Infrastructure/Ldap/StatusProbe.cs` |
+| `upstreamUnavailable` zamiast pustych list | zrobione (M1) | `MessageRouter`, `SourceUnavailableException` |
+| Adres IP stacji (WMI/ARP/DNS) | do M1.1 | — |
+| Historia logowań (WEF/dzienniki, retencja) | do M2 | `UnavailableLoginLog` jako jawny placeholder |
+| Uwierzytelnianie Windows/Kerberos, audyt | do M3 | tokeny dev w `appsettings.json` |
+
+Testy: `ClassroomMapTests`, `LdapInventoryTests`, rozszerzone `MessageRouterTests`
+i `FreshnessServiceTests` — wszystkie działają bez kontrolera domeny.
 
 ## 11. Co powstało w ramach tej oceny
 

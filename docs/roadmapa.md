@@ -2,7 +2,7 @@
 
 Każdy etap ma kryteria akceptacji w formacie Given/When/Then — bez nich nie da się obiektywnie zamknąć zadania (to była największa luka ocenianej specyfikacji).
 
-## M0 — Szkielet (zrobione w tym commicie)
+## M0 — Szkielet (zrobione)
 
 **Zakres:** kontrakty protokołu, serwer WebSocket z danymi przykładowymi, klient WPF z trzema listami, metadane świeżości, role i uprawnienia, testy jednostkowe, CI, dokumentacja.
 
@@ -15,17 +15,32 @@ Każdy etap ma kryteria akceptacji w formacie Given/When/Then — bez nich nie d
 - Gdy serwer działa 30 s, to klient otrzymuje co najmniej jedno `event.computer.status` (o ile stan się zmienił).
 - Gdy zerwę połączenie, to klient przechodzi w „ponowne łączenie”, a po powrocie pobiera pełny stan.
 
-## M1 — Prawdziwe AD (odczyt)
+## M1 — Prawdziwe AD (odczyt) — zrobione
 
 **Zakres:** adapter LDAP (`System.DirectoryServices.Protocols`), `classrooms.json`, mapowanie OU → pracownia, komputery i konta z AD, grupy przez `tokenGroups`, paginacja i limity.
 
+| Element | Gdzie |
+|---|---|
+| Odczyt LDAP (tylko to miejsce zna LDAP) | `Infrastructure/Ldap/LdapDirectoryReader.cs` |
+| Interpretacja atrybutów AD, mapowanie na DTO | `Infrastructure/Ldap/LdapInventoryReader.cs` |
+| Mapowanie OU → pracownia + walidacja konfiguracji | `Infrastructure/Classrooms/ClassroomMap.cs` |
+| Komputery z AD + ICMP + cache ostatniej obserwacji | `Infrastructure/Ldap/AdComputerDirectory.cs`, `StatusProbe.cs` |
+| Konta i pracownie nad AD | `Infrastructure/Ldap/AdDirectory.cs`, `AdClassroomDirectory.cs` |
+| Definicja pracowni (konfiguracja, nie kod) | `src/ZseAdmin.Server/classrooms.json` |
+
 **Kryteria akceptacji:**
 
-- Gdy w AD jest nowy komputer w OU pracowni, to pojawia się na liście po odświeżeniu, bez restartu serwera.
-- Gdy komputer jest poza OU z konfiguracji, to widzę go w „poza pracownią”, a nie znika.
-- Gdy OU jest przypisane do dwóch pracowni, to serwer nie startuje i loguje błąd konfiguracji.
-- Gdy konto ma 300 grup, to widzę wszystkie (bez ucięcia), a odpowiedź trwa < 2 s.
-- Gdy konto AD nie istnieje, to `users.get` zwraca `notFound`.
+- Gdy w AD jest nowy komputer w OU pracowni, to pojawia się na liście po odświeżeniu, bez restartu serwera. ✔ cache katalogu ma TTL (`Directory:CacheSeconds`), więc odświeżenie widać najpóźniej po tym czasie.
+- Gdy komputer jest poza OU z konfiguracji, to widzę go w „poza pracownią”, a nie znika. ✔ `ClassroomMap.Resolve` zwraca `null`, a `AdComputerDirectory` nie filtruje po pracowni źródłowo (test: `Komputer_poza_znanym_OU_nie_dostaje_pracowni_ale_nie_rzuca`).
+- Gdy OU jest przypisane do dwóch pracowni, to serwer nie startuje i loguje błąd konfiguracji. ✔ `ClassroomMap.Create` + `Program.cs` (kod wyjścia 1, komunikat na stderr; test: `Jedno_OU_w_dwoch_pracowniach_to_blad_konfiguracji`).
+- Gdy konto ma 300 grup, to widzę wszystkie (bez ucięcia), a odpowiedź trwa < 2 s. ✔ grupy przez `tokenGroups` rozwiązywane **jednym** zapytaniem po `objectSid` (test: `Grupy_przez_tokenGroups_sa_rozwiazywane_jednym_zapytaniem`). SID-y spoza domeny nie znikają — wracają jako `S-1-5-…`.
+- Gdy konto AD nie istnieje, to `users.get` zwraca `notFound`. ✔ `AdDirectory` zwraca `null`, router podnosi `NotFound`.
+- Gdy AD jest nieosiągalne, to `users.get` zwraca `upstreamUnavailable` z nazwą źródła — a nie `notFound` ani pustą listę. ✔ (`SourceUnavailableException` → `ProtocolException`).
+- Gdy inwentarz przekroczy `Directory:MaxComputers`, to odpowiedź ma `completeness = partial` i notę z liczbą komputerów. ✔
+
+**Poza zakresem M1 (świadomie):** adres IP stacji (wymaga WMI/ARP/DNS — etap M1.1),
+odczyt `dNSHostName`, historia logowań (M2). W trybie produkcyjnym `logins.query` zwraca
+wtedy `unavailable` z powodem, chyba że włączono `UseMockDataForLogins`.
 
 **Ryzyka:** uprawnienia konta usługi, opóźnienie `lastLogonTimestamp`, rozmiar odpowiedzi LDAP.
 

@@ -15,6 +15,9 @@ public sealed record QueryMetadata(
     public static QueryMetadata Complete(DateTimeOffset observedAtUtc) =>
         new(observedAtUtc, DataCompleteness.Complete, null);
 
+    public static QueryMetadata Partial(DateTimeOffset observedAtUtc, string note) =>
+        new(observedAtUtc, DataCompleteness.Partial, note);
+
     public static QueryMetadata Unavailable(string note) =>
         new(null, DataCompleteness.Unavailable, note);
 }
@@ -51,10 +54,34 @@ public interface IComputerDirectory
 
 public interface ILoginLog
 {
+    /// <summary>Początek retencji źródła (UTC); <c>null</c> = źródło nie deklaruje zakresu.</summary>
+    DateTimeOffset? RetentionStartUtc { get; }
+
     Task<LoginQueryResult> QueryAsync(LoginQueryRequest query, CancellationToken cancellationToken = default);
 }
 
 public interface IAdDirectory
 {
+    /// <summary>
+    /// Zwraca konto albo <c>null</c> (<c>notFound</c>). Gdy źródło jest nieosiągalne,
+    /// implementacja rzuca <see cref="SourceUnavailableException"/> — puste konto
+    /// nie może udawać „nie ma takiego użytkownika”.
+    /// </summary>
     Task<AdUserQueryResult> FindUserAsync(string samAccountName, CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Źródło danych nie jest osiągalne (AD, dziennik). Router zamienia to na błąd
+/// <c>upstreamUnavailable</c> z komunikatem, a nie na pustą listę.
+/// </summary>
+public sealed class SourceUnavailableException : Exception
+{
+    public SourceUnavailableException(string sourceName, string message, Exception? inner = null)
+        : base(message, inner)
+    {
+        SourceName = sourceName;
+    }
+
+    /// <summary>Nazwa źródła danych (np. „Active Directory”); nie mylić z <see cref="Exception.Source"/>.</summary>
+    public string SourceName { get; }
 }

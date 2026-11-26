@@ -82,12 +82,12 @@ Progi są celowo krótkie: lepiej pokazać „nieaktualne” niż przekonać nau
 
 | Element aplikacji | Źródło AD / systemu | Uwagi |
 |---|---|---|
-| Pracownia | konfiguracja (`classrooms.json`) | nie wynika z AD; relacja jawna |
+| Pracownia | konfiguracja (`classrooms.json`) | nie wynika z AD; relacja jawna, walidowana przy starcie (ADR-0005) |
 | Komputer | `objectCategory=computer`, `cn`, `dNSHostName`, `operatingSystem`, `lastLogonTimestamp` | filtr po OU z konfiguracji |
-| Użytkownik | `objectCategory=person` + `objectClass=user`, `sAMAccountName`, `displayName`, `mail`, `userAccountControl` | `enabled` = brak `ACCOUNTDISABLE` |
-| Grupy | `tokenGroups` lub `memberOf` | `tokenGroups` uwzględnia zagnieżdżenie |
+| Użytkownik | `objectCategory=person` + `objectClass=user`, `sAMAccountName`, `displayName`, `mail`, `userAccountControl` | `enabled` = brak `ACCOUNTDISABLE` (0x2); `lastLogonAtUtc` z `lastLogonTimestamp` (FILETIME) |
+| Grupy | `tokenGroups` lub `memberOf` | `tokenGroups` uwzględnia zagnieżdżenie; SID-y rozwiązywane jednym zapytaniem, nierozwiązane wracają jako `S-1-5-…` |
 | Stan / IP | ICMP, SMB 445, WMI `Win32_PingStatus`, ARP/DNS | zapisać metodę i czas obserwacji |
-| Logowania | dziennik zabezpieczeń stacji: 4624, 4634, 4625 (opcjonalnie 4648) | wymaga „Event Log Readers” na stacji |
+| Logowania | dziennik zabezpieczeń stacji: 4624, 4634, 4625 (opcjonalnie 4648) | wymaga „Event Log Readers” na stacji; etap M2 — do tego czasu `unavailable` |
 
 **Ograniczenia, które muszą być widoczne w UI:**
 

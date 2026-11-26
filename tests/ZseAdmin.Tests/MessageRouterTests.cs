@@ -1,6 +1,7 @@
 using ZseAdmin.Contracts;
 using ZseAdmin.Contracts.Protocol;
 using ZseAdmin.Server.Configuration;
+using ZseAdmin.Server.Abstractions;
 using ZseAdmin.Server.Infrastructure.Mock;
 using ZseAdmin.Server.Realtime;
 using ZseAdmin.Server.Security;
@@ -128,7 +129,58 @@ public sealed class MessageRouterTests
         Assert.Equal(ProtocolJson.ProtocolVersion, welcome.ProtocolVersion);
     }
 
-    private static MessageRouter CreateRouter()
+    [Fact]
+    public async Task Zrodlo_niedostepne_daje_upstream_unavailable_a_nie_pusta_liste()
+    {
+        var router = CreateRouter(users: new UnavailableAdDirectory());
+
+        var exception = await Assert.ThrowsAsync<ProtocolException>(() => router.HandleAsync(
+            WsEnvelope.Create(MessageTypes.UsersGet, "req-8", new UserLookupRequest("j.kowalski")),
+            RoleCatalog.CreateIdentity("admin.it", Roles.Administrator)));
+
+        Assert.Equal(ErrorCode.UpstreamUnavailable, exception.Code);
+        Assert.Contains("Active Directory", exception.Message);
+    }
+
+    [Fact]
+    public async Task Historia_niedostepna_ma_kompletnosc_unavailable_a_nie_pusta_liste()
+    {
+        var router = CreateRouter(logins: new UnavailableLoginLogForTests());
+
+        var response = await router.HandleAsync(
+            WsEnvelope.Create(MessageTypes.LoginsQuery, "req-9"),
+            RoleCatalog.CreateIdentity("t", Roles.ReadOnly));
+
+        var payload = response.ReadPayload<LoginsResponse>();
+
+        Assert.NotNull(payload);
+        Assert.Empty(payload!.Items);
+        Assert.Equal(DataCompleteness.Unavailable, payload.Freshness.Completeness);
+        Assert.NotNull(payload.Freshness.Note);
+    }
+
+    [Fact]
+    public async Task Zakres_przed_retencja_jest_jawnie_oznaczony()
+    {
+        var router = CreateRouter();
+
+        var response = await router.HandleAsync(
+            WsEnvelope.Create(
+                MessageTypes.LoginsQuery,
+                "req-10",
+                new LoginQueryRequest(FromUtc: Now.AddDays(-60))),
+            RoleCatalog.CreateIdentity("t", Roles.ReadOnly));
+
+        var payload = response.ReadPayload<LoginsResponse>();
+
+        Assert.NotNull(payload);
+        Assert.Equal(DataCompleteness.Partial, payload!.Freshness.Completeness);
+        Assert.Contains("retencj", payload.Freshness.Note, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static MessageRouter CreateRouter(
+        IAdDirectory? users = null,
+        ILoginLog? logins = null)
     {
         var clock = new FakeClock(Now);
         var options = new ZseAdminOptions();
@@ -136,10 +188,27 @@ public sealed class MessageRouterTests
         return new MessageRouter(
             new MockClassroomDirectory(clock),
             new MockComputerDirectory(clock),
-            new MockLoginLog(clock),
-            new MockAdDirectory(clock),
+            logins ?? new MockLoginLog(clock),
+            users ?? new MockAdDirectory(clock),
             new FreshnessService(clock),
             options,
             clock);
+    }
+
+    private sealed class UnavailableAdDirectory : IAdDirectory
+    {
+        public Task<AdUserQueryResult> FindUserAsync(string samAccountName, CancellationToken cancellationToken = default) =>
+            throw new SourceUnavailableException("Active Directory", "Nie można połączyć się z DC.");
+    }
+
+    private sealed class UnavailableLoginLogForTests : ILoginLog
+    {
+        public DateTimeOffset? RetentionStartUtc => null;
+
+        public Task<LoginQueryResult> QueryAsync(LoginQueryRequest query, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new LoginQueryResult(
+                Array.Empty<LoginEventDto>(),
+                0,
+                QueryMetadata.Unavailable("Historia logowań nie jest jeszcze podłączona (etap M2).")));
     }
 }

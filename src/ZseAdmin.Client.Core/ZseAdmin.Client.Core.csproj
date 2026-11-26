@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>ZseAdmin.Client.Core</RootNamespace>
+    <AssemblyName>ZseAdmin.Client.Core</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ZseAdmin.Contracts\ZseAdmin.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

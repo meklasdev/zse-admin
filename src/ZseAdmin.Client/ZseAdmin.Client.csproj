@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>ZseAdmin.Client</RootNamespace>
+    <AssemblyName>ZseAdmin.Client</AssemblyName>
+    <Version>0.1.0</Version>
+    <!-- Pozwala na restore/build poza Windows; uruchomienie i tak wymaga pulpitu Windows. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ZseAdmin.Client.Core\ZseAdmin.Client.Core.csproj" />
+    <ProjectReference Include="..\ZseAdmin.Contracts\ZseAdmin.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

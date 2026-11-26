@@ -1,5 +1,18 @@
 # ZSE-Admin
 
+Repozytorium zawiera **ocenę specyfikacji** (`docs/ocena.md`) oraz **działający szkielet**
+aplikacji: serwer WebSocket na .NET 8 z danymi przykładowymi i klient WPF.
+Specyfikacja produktu (poniżej) pozostaje źródłem wymagań.
+
+| Chcesz… | Zajrzyj do |
+|---|---|
+| poznać ocenę wymagań, ryzyka i luki | [`docs/ocena.md`](docs/ocena.md) |
+| zrozumieć komponenty i wdrożenie | [`docs/architektura.md`](docs/architektura.md) |
+| zobaczyć kontrakt klient–serwer | [`docs/api-websocket.md`](docs/api-websocket.md) |
+| sprawdzić role i RODO | [`docs/uprawnienia-i-dane-osobowe.md`](docs/uprawnienia-i-dane-osobowe.md) |
+| uruchomić projekt | [`docs/uruchomienie.md`](docs/uruchomienie.md) |
+| zobaczyć plan etapów i kryteria akceptacji | [`docs/roadmapa.md`](docs/roadmapa.md) |
+
 ## Cel produktu
 
 ZSE-Admin ma być wspólnym punktem pracy dla administratora IT i — w zakresie
@@ -90,3 +103,43 @@ konta — bez utożsamiania bieżącego stanu urządzenia z jego historią.
 
 Te odpowiedzi powinny ustalić granice zaufania do danych oraz podstawowe
 przypadki błędów, zanim zostanie zaprojektowana nawigacja i szczegóły widoków.
+
+**Stan na dziś:** odpowiedzi domyślne (do potwierdzenia) są zapisane w
+[`docs/ocena.md`](docs/ocena.md) §7 i [`docs/roadmapa.md`](docs/roadmapa.md).
+
+---
+
+## Struktura repozytorium
+
+```
+├── docs/                        ocena, architektura, protokół, RODO, roadmapa, ADR-y
+│   └── adr/                     decyzje architektoniczne z alternatywami
+├── src/
+│   ├── ZseAdmin.Contracts/      DTO i protokół (wspólne dla serwera i klienta)
+│   ├── ZseAdmin.Server/         ASP.NET Core: WebSocket /ws, routing, uprawnienia, dane przykładowe
+│   │   └── wwwroot/debug.html   konsola protokołu do testów ręcznych
+│   ├── ZseAdmin.Client.Core/    klient WS, API typowane, ViewModele (bez WPF)
+│   └── ZseAdmin.Client/         aplikacja WPF (XAML)
+├── tests/ZseAdmin.Tests/        testy jednostkowe (xUnit)
+├── scripts/                     uruchomienie i publikacja
+└── .github/workflows/ci.yml     build + testy na Windows
+```
+
+## Szybki start
+
+```bash
+dotnet restore
+dotnet run --project src/ZseAdmin.Server      # http://localhost:5080/debug.html
+dotnet run --project src/ZseAdmin.Client      # tylko Windows (WPF)
+dotnet test
+```
+
+Tokeny deweloperskie: `dev-admin-token` (Administrator), `dev-teacher-token` (Nauczyciel).
+Szczegóły, konfiguracja i rozwiązywanie problemów: [`docs/uruchomienie.md`](docs/uruchomienie.md).
+
+## Status
+
+- **M0 (szkielet): gotowe.** Protokół, serwer, klient, testy, CI, dokumentacja.
+- Dane pochodzą z deterministycznych danych przykładowych — prawdziwe AD, stacje i dzienniki to etapy M1–M2.
+- MVP jest **tylko do odczytu**; zapis do AD i akcje na stacjach są poza zakresem (ADR-0003).
+- Tokeny w konfiguracji są rozwiązaniem deweloperskim i **nie mogą** trafić na produkcję.

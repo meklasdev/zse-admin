@@ -1,3 +1,4 @@
+using ZseAdmin.Contracts;
 using ZseAdmin.Contracts.Protocol;
 
 namespace ZseAdmin.Server.Abstractions;

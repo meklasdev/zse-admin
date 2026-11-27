@@ -3,6 +3,7 @@
 **Etap:** M6 · **Priorytet:** P0 (fundament dla wszystkich widoków) · **Zależy od:** —
 **Blokuje:** ZAD-02, ZAD-03, ZAD-05, ZAD-08, ZAD-10
 **Etykiety:** `enhancement`, `documentation` · **Szacunek:** 2–3 dni
+**Status:** **zrobione** (PR #18, 2026-11-27) — patrz „Realizacja” na końcu dokumentu
 **Specyfikacja:** [`../ui-design-system.md`](../ui-design-system.md)
 
 ## Kontekst
@@ -74,6 +75,24 @@ każdy nowy widok (topologia, pliki) będzie wyglądał inaczej.
 - [ ] PR zawiera zrzuty „przed / po” dla 3 skal DPI.
 - [ ] CI zielone; to zadanie nie dodaje paczek NuGet (D8 = B realizuje ZAD-02).
 - [ ] Status w [`README.md`](README.md) uzupełniony.
+
+## Realizacja (2026-11-27, PR #18)
+
+| Element | Plik / decyzja |
+|---|---|
+| Tokeny kolorów, geometrii, odstępów i typografii | `src/ZseAdmin.Client/Styles/Theme.xaml` — `Brush.*`, `Border1`, `Line.Bottom/Top`, `Radius.*`, `Space.1–6`, `Padding.*`, `Size.*`, `Text.*`, `Font.Default` = `Segoe UI` |
+| Style i szablony kontrolek (stany bez efektów) | `src/ZseAdmin.Client/Styles/Controls.xaml` — m.in. `Button.Primary`, `Button.Danger`, `CardSurface`, `Card.Warning`, `TagPill`, `SectionSeparator`, `DropZone` |
+| Podpięcie słowników | `App.xaml` → `MergedDictionaries` (Theme → Controls), usunięte style `SectionTitle`/`Hint`/`Button`/`TextBox` |
+| Widok główny | `MainWindow.xaml` — nagłówek `Brush.Surface` + 1px linia, karty `CardSurface`, wszystkie kolory przez `StaticResource` |
+| Dodatkowe tokeny | `Brush.AccentHover`, `Brush.Transparent`, `Radius.*.Value` (double dla `Rectangle`), `Padding.*` |
+
+**Spełnione kryteria:** 1 (brak literałów/efektów — skan), 2 (jedno źródło obramowań), 3 (jasny nagłówek,
+kontrast 5.2 / 5.0 / 6.7), 4 (fokus 1px `Accent` + `AccentSubtle`), 5 (build Release w CI; DPI do
+potwierdzenia zrzutami), 6 (noty świeżości pozostały tekstowe).
+
+**Otwarte:** zrzuty ekranu 100/125/150% DPI wymagają pulpitu Windows — środowisko agenta to Linux bez
+.NET SDK, a CI nie renderuje WPF. Pozycja niezaznaczona w `ui-design-system.md` §5.1. Ikony i formularze
+należą do ZAD-02/ZAD-03.
 
 ## Ryzyka i decyzje
 

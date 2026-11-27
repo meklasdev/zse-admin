@@ -6,6 +6,10 @@
 to [`zadania/01-design-system.md`](zadania/01-design-system.md), a kontrola w CI to
 [`zadania/10-ci-dokumentacja-dostepnosc.md`](zadania/10-ci-dokumentacja-dostepnosc.md).
 
+**Stan realizacji (2026-11-27):** ZAD-01 zrobione (PR #18) — `Styles/Theme.xaml` i `Styles/Controls.xaml`
+są jedynym źródłem wartości, `MainWindow.xaml` nie zawiera literałów kolorów. Zrzuty 100/125/150% DPI
+pozostają do wykonania na stacji Windows (CI nie renderuje WPF) — patrz §5.
+
 Stosujemy go zarówno do istniejących ekranów (`MainWindow.xaml`), jak i do nowych widoków
 (topologia, pliki). Wszystkie kolory, grubości, promienie i odstępy pochodzą z jednego zestawu
 tokenów — **w widokach nie ma wartości „na sztywno”**.
@@ -64,6 +68,8 @@ wyłącznie `StaticResource`.
 | `Brush.StatusError` | `#B91C1C` | błąd, `upstreamUnavailable`, `denied` |
 | `Brush.StatusInfo` | `#1D4ED8` | informacja, `unknown` |
 | `Brush.Disabled` | `#9AA1AC` | kontrolki nieaktywne |
+| `Brush.AccentHover` | `#1E40AF` | hover przycisku pierwotnego (ciemniejszy akcent, bez cienia) |
+| `Brush.Transparent` | `Transparent` | brak koloru jako token (widoki nie piszą `Transparent`) |
 
 Kolory statusów **nie mogą być jedynym nośnikiem informacji** — zawsze towarzyszy im tekst
 („brak danych”, „dane z 10:42”, „częściowe”). Utrzymujemy semantykę z
@@ -79,8 +85,11 @@ Kolory statusów **nie mogą być jedynym nośnikiem informacji** — zawsze tow
 | `Radius.Pill` | `999` | liczniki, znaczniki, wybrane akcje |
 | `Stroke.Dash` | `4,3` | wyłącznie przerywane strefy upuszczania plików |
 | `Space.1` … `Space.6` | `4, 8, 12, 16, 24, 32` | paddingi i marginesy (siatka 8 px) |
+| `Padding.Window / Header / Footer / Card / Field / Button / Pill` | `12` / `16,12` / `16,8` / `12` / `10,8` / `14,6` / `8,2` | gotowe `Thickness` z siatki 8 px |
 | `Size.FormLabel` | `260` | lewa kolumna formularza |
 | `Size.RowMinHeight` | `40` | minimalna wysokość wiersza / celu kliknięcia |
+| `Radius.Control.Value` / `Radius.Surface.Value` | `6` / `8` | te same promienie jako `double` (np. `Rectangle.RadiusX`) |
+| `Stroke.Dash` | `4,3` (`DoubleCollection`) | wyłącznie `DropZone` (`Rectangle.StrokeDashArray`) |
 
 Warstwy: `AppBackground` → `SurfaceMuted` (nawigacja) → `Surface` (treść). Aktywność i fokus
 oznaczamy zmianą `BorderBrush` na `Accent` + lekkim `AccentSubtle` w tle — **bez pogrubiania
@@ -96,8 +105,8 @@ obramowania i bez cienia**, żeby siatka 1px pozostała jednolita.
 | `Text.Label` | 12 | Medium | etykiety pól |
 | `Text.Meta` | 11 | Regular | opisy, liczniki, `freshness`, noty |
 
-- Krój: nowoczesny sans-serif — preferowane **Inter** / **Plus Jakarta Sans**, fallback natywny
-  **Segoe UI**. **D9 = A (podjęte 2026-11-26):** obowiązuje natywny `FontFamily` systemowy w jednym
+- Krój: **`Font.Default` = `Segoe UI`** (token w `Theme.xaml`, `Window` i kontrolki dziedziczą go przez
+  `StaticResource`). Warianty historyczne (Inter / Plus Jakarta Sans) odrzucone. **D9 = A (podjęte 2026-11-26):** obowiązuje natywny `FontFamily` systemowy w jednym
   miejscu (`Theme.xaml`); nie dołączamy plików Inter / Plus Jakarta Sans (brak decyzji licencyjnej).
 - Hierarchię budujemy rozmiarem i wagą, nie kolorem ani kursywą. Interlinia i odstępy z siatki 8 px.
 - Tekst nie ma cienia, obrysu ani efektu „glow”.
@@ -146,7 +155,7 @@ pod kontrolką. Formularze nie „pływają” — brak cieni i podniesionych ka
 | `Tag` / licznik | pill (`Radius.Pill`), 1px `Border`, `Text.Meta`. |
 | Zakładki | aktywna = 1px podkreślenie `Accent` + `Text` pogrubiony; brak „wypukłych” kart zakładek. |
 | Listy / `DataGrid` | tylko poziome linie 1px `Border`, nagłówek `SurfaceMuted`, brak pionowych kratek, brak naprzemiennych cieni; wiersz aktywny = `AccentSubtle` + 1px `Accent`. |
-| Strefa upuszczania plików | 1px obramowanie **przerywane** (`Stroke.Dash`), promień 8, `SurfaceMuted`; drag-over zmienia `BorderBrush` na `Accent` (bez animacji poświaty). |
+| Strefa upuszczania plików | 1px obramowanie **przerywane** (`Stroke.Dash`), promień 8, `SurfaceMuted`; drag-over zmienia kolor obramowania na `Accent` (bez animacji poświaty). Realizacja: styl `DropZone` dla `Rectangle` — `Border` nie obsługuje `StrokeDashArray`. |
 | Separator sekcji | `Rectangle`/`Border` wysokości 1, `Brush.Border`, bez marginesów „dla efektu”. |
 
 ### 3.3 Ikony
@@ -154,6 +163,10 @@ pod kontrolką. Formularze nie „pływają” — brak cieni i podniesionych ka
 - Jedno źródło: `IconKey` + mapowanie w `Client.Core` (logika bez WPF) i `Styles/Icons.xaml`
   po stronie klienta. Rozmiary 16 / 20 / 24 px, linia 1–1.5 px, kolor dziedziczony z `Text`/`Accent`,
   **bez cieni i gradientów**.
+- **Realizacja (ZAD-01, PR #18):** `Styles/Controls.xaml` definiuje szablony `Button`/`Button.Primary`/
+  `Button.Danger`, `TextBox`, `PasswordBox`, `ComboBox`, `ListBox`, `TabControl`/`TabItem`, `DataGrid`
+  (nagłówek `SurfaceMuted`, tylko poziome linie 1px, brak pionowych kratek) oraz jawne `CardSurface`,
+  `Card.Warning`, `TagPill`, `SectionSeparator`, `DropZone`.
 - **D8 = B (podjęte):** `dotnet add package SvgIcons --version 0.1.10` ma trafić do klienta w
   ZAD-02. Bramka weryfikacji (`restore` + CI) pozostaje warunkiem; przy porażce fallback `Path`.
   Decyzja i alternatywy w [`adr/0009-ikony-svg.md`](adr/0009-ikony-svg.md),
@@ -202,6 +215,20 @@ pod kontrolką. Formularze nie „pływają” — brak cieni i podniesionych ka
 - [ ] `dotnet build -c Release` i `dotnet test` zielone na `windows-latest`.
 
 ---
+
+### 5.1 Stan realizacji dla `MainWindow` (ZAD-01)
+
+- [x] Wszystkie kolory, promienie, grubości i fonty przez `StaticResource` z `Theme.xaml`.
+- [x] Brak `DropShadowEffect`, `BlurEffect`, gradientów i dosłownych kolorów w XAML widoku
+  (skan: brak trafień poza `Theme.xaml`).
+- [x] Obramowania 1px, promienie z tokenów, separacja sekcji poziomą linią, nie kartami.
+- [ ] Formularz dwukolumnowy — realizuje ZAD-03 (poza zakresem ZAD-01).
+- [x] Stany hover / focus / active / disabled / error / empty / forbidden / stale — bez glow.
+- [ ] Ikony z jednego źródła — realizuje ZAD-02 (poza zakresem ZAD-01).
+- [x] Noty `freshness` i `completeness` widoczne; `unknown` nie jest opisane jako `offline`.
+- [ ] Zrzut ekranu przy 100% / 125% / 150% DPI — **do wykonania na stacji Windows**; środowisko agenta
+  (Linux, brak .NET SDK i pulpitu) nie renderuje WPF, a CI buduje bez interfejsu graficznego.
+- [x] `dotnet build -c Release` i `dotnet test` zielone na `windows-latest` (PR #18).
 
 ## 6. Czego ten dokument nie zmienia
 

@@ -2,6 +2,14 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!--
+        Tokeny są dołączone także tutaj, żeby StaticResource w tym słowniku
+        rozwiązywał się niezależnie od kolejności scalania w App.xaml.
+    -->
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="Theme.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <!--
         ZAD-01 — style kontrolek (docs/ui-design-system.md §3).
         Stany (hover / pressed / focus / disabled / error) zmieniają wyłącznie
         kolor tła i obramowania. Brak cieni, gradientów, animacji i efektów.

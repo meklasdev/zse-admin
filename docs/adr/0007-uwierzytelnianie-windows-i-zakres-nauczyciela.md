@@ -79,3 +79,29 @@ nie startuje w trybie Windows Auth na `ws://`, a `WsClientConnection` ustawia
 `UseDefaultCredentials`, gdy nie dostaje tokenu. Testy zastępują `IWindowsGroupProvider`
 fake'iem, więc CI działa bez domeny. DPIA, klauzula informacyjna i przegląd grup AD
 pozostają zadaniami wdrożeniowymi M5.
+
+## Aneks (2026-11-27) — deny overrides, `topology.read`, `files.read` (D10/D7/D4)
+
+**ZAD-06** doprecyzowuje model ról bez zmiany mechanizmu Windows/Kerberos, `wss` i zakresu
+nauczyciela w historii logowań:
+
+1. **Deny overrides (D10 = A).** `Security:DeniedGroups` (wzorzec: `ZSE-Uczniowie`) jest sprawdzane
+   **przed** `RoleCatalog.RoleFromGroups`. Konto w grupie wykluczającej dostaje HTTP 401 przed
+   upgrade'em WebSocket, wpis `auth.rejected` z kodem `denied_group` i nie dostaje `welcome` —
+   nawet jeśli należy do `ZSE-Admin-Administratorzy`. `ProductionConfigurationGuard` wymaga
+   niepustej listy i odrzuca grupy szerokie (`Domain Users`, `Users`, `Everyone`,
+   `Authenticated Users`, `Domain Computers`), bo zablokowałyby konta usługowe.
+   `RolePriority` (Administrator → Teacher → ReadOnly) nadal rozstrzyga role, ale **po** deny check.
+2. **Fail-close katalogu uprawnień.** Nowy `MessageCapabilities` mapuje każdy typ żądania na
+   wymagane uprawnienie. Typ z katalogu protokołu bez wpisu → `forbidden`, typ spoza katalogu →
+   `invalidRequest`. Test pilnuje, że `MessageTypes.ClientRequestTypes` i katalog uprawnień są
+   kompletne (`UnmappedProtocolRequests` puste).
+3. **`topology.read` i `files.read`** są przyznane wszystkim trzem rolom aplikacji (D7 = C, D4).
+   To **nie** zmienia `classroomScope` historii logowań ani danych kont. Uczniowie nie mają
+   żadnej roli, więc nowe uprawnienia ich nie dotyczą.
+4. **Odmowa nie ujawnia przyczyny klientowi.** HTTP 401 jest jednolite; kod przyczyny
+   (`denied_group`, `role_group_missing`, `token_missing`, `token_invalid`, `not_authenticated`)
+   trafia wyłącznie do audytu serwera.
+
+Konsekwencja: lista grup wykluczających jest konfiguracją wdrożenia (wzorzec w repo), a jej
+ostateczne wartości i wyjątki (np. konta serwisowe) potwierdza administrator IT w M5.

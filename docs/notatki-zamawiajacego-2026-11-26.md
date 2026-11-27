@@ -143,8 +143,13 @@ Zadania nie są już blokowane; trzy drobne doprecyzowania (§4.1) nie wstrzymuj
 | 10 / D9 | Czcionka | **A** | `Segoe UI` (krój systemowy) w `Theme.xaml`; nie dołączamy Inter / Plus Jakarta Sans. |
 
 **Zmiana względem pierwotnych propozycji domyślnych:** D2 (B zamiast „tylko diagram”), D4 (wszystkie
-role zamiast tylko Administrator), D7 (wszystkie sale zamiast zakresu nauczyciela), D8 (dodaj paczkę
+role zamiast tylko Administrator), D7 (wszystkie sale z zakresu nauczyciela), D8 (dodaj paczkę
 zamiast „nie dodawaj bez weryfikacji”), D1 (lista od admina). D5, D9, D10 pozostały przy propozycji.
+
+**Realizacja decyzji w kodzie (2026-11-27):** D10 → ZAD-06 (PR #19: `Security:DeniedGroups`,
+deny overrides przed rolą, 401 + `auth.rejected`, `MessageCapabilities` fail-close, ekran
+„Brak dostępu”); D9 → ZAD-01 (PR #18). D1–D4, D6–D8 czekają na ZAD-04/05/07/08; ich
+konfiguracja (`topology.json`, UNC udziału, pliki grafik) pozostaje po stronie administratora IT.
 
 ### 4.1 Trzy drobne doprecyzowania (nie blokują startu)
 

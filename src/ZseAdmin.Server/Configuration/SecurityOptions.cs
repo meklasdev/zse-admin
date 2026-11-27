@@ -38,6 +38,15 @@ public sealed class SecurityOptions
         ["ZSE-Admin-ReadOnly"] = "ReadOnly"
     };
 
+    /// <summary>
+    /// D10 = A (deny overrides): grupy, których członkowie nigdy nie dostają sesji.
+    /// Sprawdzenie odbywa się <b>przed</b> wyliczeniem roli, więc uczeń wpisany przez pomyłkę
+    /// do <c>ZSE-Admin-Nauczyciele</c> i tak dostaje HTTP 401 + wpis <c>auth.rejected</c>.
+    /// Wartość domyślna (wąska grupa uczniowska) obowiązuje, dopóki konfiguracja jej nie nadpisze;
+    /// w produkcji <c>ProductionConfigurationGuard</c> wymaga niepustej listy i odrzuca grupy szerokie.
+    /// </summary>
+    public List<string> DeniedGroups { get; set; } = new() { "ZSE-Uczniowie" };
+
     /// <summary>Stałe przypisanie nauczyciela do pracowni (np. na cały semestr).</summary>
     public Dictionary<string, List<string>> TeacherClassrooms { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 

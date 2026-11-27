@@ -36,6 +36,41 @@ public sealed class RoleCatalogTests
     }
 
     [Fact]
+    public void Rola_student_nie_istnieje_w_katalogu_uprawnien()
+    {
+        // D10: nie tworzymy roli „Uczeń” z uprawnieniami. Nieznana rola = zero uprawnień.
+        Assert.Empty(RoleCatalog.CapabilitiesFor("Student"));
+        Assert.Empty(RoleCatalog.CapabilitiesFor("Uczen"));
+        Assert.Empty(RoleCatalog.CapabilitiesFor("Uczeń"));
+    }
+
+    [Theory]
+    [InlineData(Roles.Administrator)]
+    [InlineData(Roles.Teacher)]
+    [InlineData(Roles.ReadOnly)]
+    public void Topologia_i_listing_plikow_sa_dostepne_dla_wszystkich_rol_aplikacji(string role)
+    {
+        // D7 = C (topology.read) i D4 (files.read) — każda rola, która w ogóle się loguje.
+        var identity = RoleCatalog.CreateIdentity("ktos", role);
+
+        Assert.True(identity.Has(Capability.TopologyRead));
+        Assert.True(identity.Has(Capability.FilesRead));
+    }
+
+    [Fact]
+    public void Grupa_wykluczajaca_ma_pierwszenstwo_nad_rola()
+    {
+        var denied = new[] { "ZSE-Uczniowie" };
+
+        Assert.Equal(
+            "ZSE-Uczniowie",
+            RoleCatalog.FindDeniedGroup(
+                new[] { "ZSE\\ZSE-Uczniowie", "ZSE\\ZSE-Admin-Nauczyciele" },
+                denied));
+        Assert.Null(RoleCatalog.FindDeniedGroup(new[] { "ZSE\\ZSE-Admin-Nauczyciele" }, denied));
+    }
+
+    [Fact]
     public void Uprawnienia_sa_posortowane_i_unikalne()
     {
         var identity = RoleCatalog.CreateIdentity("admin.it", Roles.Administrator);

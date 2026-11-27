@@ -15,7 +15,38 @@ public sealed class SecurityM3Tests
         var authenticator = WindowsAuthenticator(new FakeGroupProvider());
         var context = Context("ZSE\\uczen");
 
-        Assert.Null(authenticator.Authenticate(context.Request));
+        var result = authenticator.Authenticate(context.Request);
+
+        Assert.False(result.Succeeded);
+        Assert.Equal(RejectionCodes.RoleGroupMissing, result.RejectionCode);
+    }
+
+    [Fact]
+    public void Uczen_w_grupie_wykluczajacej_jest_odrzucony_mimo_grupy_nauczycieli()
+    {
+        // D10 = A: deny overrides — pomyłkowe dodanie ucznia do ZSE-Admin-Nauczyciele
+        // nie daje sesji, bo grupa wykluczająca jest sprawdzana pierwsza.
+        var authenticator = WindowsAuthenticator(
+            new FakeGroupProvider("ZSE\\ZSE-Uczniowie", "ZSE\\ZSE-Admin-Nauczyciele"));
+        var context = Context("ZSE\\u.czen");
+
+        var result = authenticator.Authenticate(context.Request);
+
+        Assert.False(result.Succeeded);
+        Assert.Null(result.Identity);
+        Assert.Equal(RejectionCodes.DeniedGroup, result.RejectionCode);
+    }
+
+    [Fact]
+    public void Administrator_nienalezacy_do_grupy_uczniowskiej_nadal_wchodzi()
+    {
+        var authenticator = WindowsAuthenticator(
+            new FakeGroupProvider("ZSE-Admin-Administratorzy", "Domain Users"));
+
+        var result = authenticator.Authenticate(Context("ZSE\\admin.it").Request);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(Roles.Administrator, result.Identity!.Role);
     }
 
     [Fact]
@@ -25,7 +56,7 @@ public sealed class SecurityM3Tests
             new FakeGroupProvider("ZSE\\ZSE-Admin-Nauczyciele"));
         var context = Context("ZSE\\k.mazur");
 
-        var identity = authenticator.Authenticate(context.Request);
+        var identity = authenticator.Authenticate(context.Request).Identity;
 
         Assert.NotNull(identity);
         Assert.Equal(Roles.Teacher, identity!.Role);
@@ -41,7 +72,7 @@ public sealed class SecurityM3Tests
         var authenticator = WindowsAuthenticator(
             new FakeGroupProvider("ZSE-Admin-Administratorzy"));
 
-        var identity = authenticator.Authenticate(Context("ZSE\\admin.it").Request);
+        var identity = authenticator.Authenticate(Context("ZSE\\admin.it").Request).Identity;
 
         Assert.NotNull(identity);
         Assert.Equal(Roles.Administrator, identity!.Role);
@@ -78,6 +109,40 @@ public sealed class SecurityM3Tests
         Assert.Contains(errors, e => e.Contains("Tokens", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(errors, e => e.Contains("wss", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(errors, e => e.Contains("UseMockData", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Produkcja_wymaga_niepustej_grupy_wykluczajacej()
+    {
+        var options = SafeProductionOptions();
+        var security = new SecurityOptions
+        {
+            Mode = SecurityOptions.WindowsMode,
+            RequireSecureTransport = true,
+            Tokens = new List<TokenEntry>(),
+            DeniedGroups = new List<string>()
+        };
+
+        var errors = ProductionConfigurationGuard.Validate(options, security);
+
+        Assert.Contains(errors, e => e.Contains("DeniedGroups", StringComparison.OrdinalIgnoreCase));
+
+        security.DeniedGroups = new List<string> { "Domain Users" };
+        var broadErrors = ProductionConfigurationGuard.Validate(options, security);
+
+        Assert.Contains(broadErrors, e => e.Contains("Domain Users", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Domyslna_konfiguracja_blokuje_grupe_uczniowska()
+    {
+        var security = new SecurityOptions();
+
+        Assert.Contains("ZSE-Uczniowie", security.DeniedGroups);
+        Assert.Equal(
+            "ZSE-Uczniowie",
+            RoleCatalog.FindDeniedGroup(new[] { "ZSE\\ZSE-Uczniowie" }, security.DeniedGroups));
+        Assert.Null(RoleCatalog.FindDeniedGroup(new[] { "ZSE\\k.mazur" }, security.DeniedGroups));
     }
 
     [Fact]

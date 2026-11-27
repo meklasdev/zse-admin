@@ -26,4 +26,37 @@ public static class MessageTypes
 
     /// <summary>Odczyt rejestru audytu (<c>audit.read</c>).</summary>
     public const string AuditQuery = "audit.query";
+
+    /// <summary>
+    /// Topologia pracowni (ZAD-04) — <c>topology.read</c> dla wszystkich ról aplikacji (D7 = C).
+    /// Typ jest zarezerwowany w wersji 1 protokołu; do czasu ZAD-04 serwer odpowiada
+    /// <c>invalidRequest</c>, ale rola bez uprawnienia dostaje <c>forbidden</c>.
+    /// </summary>
+    public const string TopologyGet = "topology.get";
+
+    /// <summary>Listing metadanych udziału <c>/pepsi</c> (ZAD-07) — <c>files.read</c> (D4).</summary>
+    public const string FilesList = "files.list";
+
+    /// <summary>Metadane jednego wpisu <c>/pepsi</c> (ZAD-07) — <c>files.read</c> (D4).</summary>
+    public const string FilesStat = "files.stat";
+
+    /// <summary>
+    /// Wszystkie typy żądań klienta zdefiniowane w protokole w wersji 1. Używane przez
+    /// serwer do fail-close: typ spoza tej listy to <c>invalidRequest</c>, a typ z listy
+    /// bez przypisanego uprawnienia to <c>forbidden</c>.
+    /// </summary>
+    public static readonly string[] ClientRequestTypes =
+    {
+        Ping,
+        ClassroomsList,
+        ComputersList,
+        LoginsQuery,
+        UsersGet,
+        AuditQuery,
+        ActionPrepare,
+        ActionExecute,
+        TopologyGet,
+        FilesList,
+        FilesStat
+    };
 }

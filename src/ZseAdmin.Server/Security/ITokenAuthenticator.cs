@@ -2,6 +2,9 @@ namespace ZseAdmin.Server.Security;
 
 public interface ITokenAuthenticator
 {
-    /// <summary>Zwraca tożsamość albo <c>null</c>, gdy połączenie nie jest uwierzytelnione.</summary>
-    ClientIdentity? Authenticate(HttpRequest request);
+    /// <summary>
+    /// Zwraca wynik uwierzytelnienia: tożsamość sesji albo kod odmowy (bez danych osobowych),
+    /// który <c>WsEndpoint</c> zapisuje w audycie jako <c>auth.rejected</c>.
+    /// </summary>
+    AuthenticationResult Authenticate(HttpRequest request);
 }

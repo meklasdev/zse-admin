@@ -10,6 +10,12 @@ public static class Capability
     public const string UsersRead = "users.read";
     public const string UsersWrite = "users.write";
     public const string AuditRead = "audit.read";
+
+    /// <summary>Topologia pracowni — wszystkie role aplikacji (D7 = C).</summary>
+    public const string TopologyRead = "topology.read";
+
+    /// <summary>Odczyt metadanych udziału <c>/pepsi</c> — wszystkie role aplikacji (D4).</summary>
+    public const string FilesRead = "files.read";
 }
 
 public static class Roles

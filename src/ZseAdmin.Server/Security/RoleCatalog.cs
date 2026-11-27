@@ -13,20 +13,26 @@ public static class RoleCatalog
             Capability.LoginsRead,
             Capability.UsersRead,
             Capability.UsersWrite,
-            Capability.AuditRead
+            Capability.AuditRead,
+            Capability.TopologyRead,
+            Capability.FilesRead
         },
         [Roles.Teacher] = new[]
         {
             Capability.ClassroomsRead,
             Capability.ComputersRead,
             Capability.LoginsRead,
-            Capability.UsersRead
+            Capability.UsersRead,
+            Capability.TopologyRead,
+            Capability.FilesRead
         },
         [Roles.ReadOnly] = new[]
         {
             Capability.ClassroomsRead,
             Capability.ComputersRead,
-            Capability.LoginsRead
+            Capability.LoginsRead,
+            Capability.TopologyRead,
+            Capability.FilesRead
         }
     };
 
@@ -74,6 +80,31 @@ public static class RoleCatalog
                 {
                     return role;
                 }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// D10 = A — deny overrides: grupa wykluczająca ma pierwszeństwo nad przypisaniem roli.
+    /// Zwraca pierwszą dopasowaną grupę wykluczającą albo <c>null</c>. Uczeń wpisany przez
+    /// pomyłkę do <c>ZSE-Admin-Nauczyciele</c> i tak nie dostaje sesji.
+    /// </summary>
+    public static string? FindDeniedGroup(
+        IEnumerable<string> groups,
+        IEnumerable<string> deniedGroups)
+    {
+        var normalized = new HashSet<string>(
+            groups.Select(ShortName).Where(g => g.Length > 0),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var denied in deniedGroups)
+        {
+            var name = ShortName(denied);
+            if (name.Length > 0 && normalized.Contains(name))
+            {
+                return name;
             }
         }
 

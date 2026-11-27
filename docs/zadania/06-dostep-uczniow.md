@@ -2,6 +2,7 @@
 
 **Etap:** M8 · **Priorytet:** P0 (bezpieczeństwo, przed `/pepsi` i topologią dla nauczycieli)
 **Zależy od:** — (**D10 = A**: deny overrides, podjęte) · **Blokuje:** ZAD-07, ZAD-08
+**Status:** **zrobione** (PR #19, 2026-11-27) — patrz „Realizacja” na końcu dokumentu
 **Etykiety:** `enhancement`, `help wanted` · **Szacunek:** 2 dni
 **Źródło:** [`../notatki-zamawiajacego-2026-11-26.md`](../notatki-zamawiajacego-2026-11-26.md) F3
 
@@ -87,6 +88,29 @@ nie jest zabezpieczeniem — każde żądanie sprawdza `CapabilityGuard` w `Mess
   wiersz „Uczeń / grupa wykluczająca → brak dostępu”.
 - [ ] `dotnet test` zielone; przebieg CI dołączony do PR.
 - [ ] Decyzja **D10 = A** zapisana w notatkach §4; status w [`README.md`](README.md).
+
+## Realizacja (2026-11-27, PR #19)
+
+| Element | Zmiana |
+|---|---|
+| Konfiguracja | `Security:DeniedGroups` (wzorzec `ZSE-Uczniowie`) w `appsettings.json` i `appsettings.Production.json`; `SecurityOptions.DeniedGroups` z bezpieczną wartością domyślną |
+| Deny overrides | `RoleCatalog.FindDeniedGroup` + `WindowsAuthenticator` — sprawdzenie **przed** `RoleFromGroups`; odmowa `AuthenticationResult.Reject("denied_group")` |
+| 401 przed upgrade'em + audyt | `WsEndpoint` zapisuje `auth.rejected` z kodem przyczyny (`denied_group`, `role_group_missing`, `token_missing`, `token_invalid`, `not_authenticated`), nie akceptuje socketu i nie wysyła `welcome` |
+| Fail-close katalogu | nowy `Security/MessageCapabilities.cs`; `MessageRouter` sprawdza typ → uprawnienie **przed** obsługą, brak wpisu = `forbidden`; `topology.get`, `files.list`, `files.stat` zarezerwowane z `topology.read` / `files.read` |
+| Uprawnienia nowych typów | `Capability.TopologyRead`, `Capability.FilesRead` dla Administrator/Teacher/ReadOnly (D7, D4); brak roli „Uczeń” |
+| Brama produkcyjna | `ProductionConfigurationGuard` wymaga niepustego `DeniedGroups` i odrzuca grupy szerokie |
+| UI | `Client.Core/ViewModels/AccessDenial.cs` + stan `IsAccessDenied`/`HasAccess` w `MainViewModel`; w `MainWindow.xaml` jawny ekran „Brak dostępu do ZSE-Admin…” zamiast pustych tabel/przycisków akcji |
+| Testy | `SecurityM3Tests` (deny overrides, audyt, brama), `RoleCatalogTests`, `MessageRouterTests` (kompletność mapy, `forbidden` dla `Student`, uprawnienia ReadOnly), `WsEndpointTests` (401 + audyt + brak upgrade'u, 403 dla `ws`), `AccessDenialTests` („brak dostępu” ≠ `unavailable`) |
+
+**Spełnione kryteria:** 1 (401 + audyt + brak `welcome` — `WsEndpointTests`), 2 (deny overrides —
+test z uczniem w grupie nauczycielskiej), 3 (`Student` → `forbidden` dla każdego typu żądania),
+4 (fail-close kompletu typów — test `UnmappedProtocolRequests` pusty), 5 (ekran „Brak dostępu”,
+`AccessDenialTests`), 6 (brama produkcyjna wymaga `DeniedGroups`).
+
+**Otwarte:** rzeczywista nazwa grupy uczniowskiej w domenie (wzorzec `ZSE-Uczniowie`) — konfiguracja
+administratora IT; DPIA/klauzula pozostają w M5. Klient przy odmowie rozpoznaje HTTP 401 po komunikacie
+transportu (`ClientWebSocket` nie wystawia statusu) — jeśli biblioteka zmieni tekst, trzeba poprawić
+`AccessDenial.IsAuthenticationFailure` (test to pilnuje).
 
 ## Ryzyka i decyzje
 

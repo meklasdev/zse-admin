@@ -49,6 +49,7 @@ public sealed class MainViewModel : ObservableObject
     private bool _canWriteUsers;
     private bool _canReadAudit;
     private bool _canConfirmAction;
+    private bool _isAccessDenied;
 
     public MainViewModel(ZseAdminApiClient api, WsClientConnection connection, IUiDispatcher dispatcher)
     {
@@ -223,6 +224,31 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// ZAD-06/D10 — jawny stan „Brak dostępu”. Ustawiany przy odmowie 401, <c>welcome</c>
+    /// bez uprawnień albo odpowiedzi <c>forbidden</c>; nie jest tym samym co
+    /// <c>completeness = unavailable</c> (to brak danych źródła, nie brak dostępu).
+    /// </summary>
+    public bool IsAccessDenied
+    {
+        get => _isAccessDenied;
+        private set
+        {
+            if (SetProperty(ref _isAccessDenied, value))
+            {
+                OnPropertyChanged(nameof(HasAccess));
+            }
+        }
+    }
+
+    public bool HasAccess => !_isAccessDenied;
+
+    public string AccessDeniedTitle => AccessDenial.Title;
+
+    public string AccessDeniedMessage => AccessDenial.Message;
+
+    public string AccessDeniedAuditNote => AccessDenial.AuditNote;
+
     public bool IsBusy
     {
         get => _isBusy;
@@ -242,6 +268,14 @@ public sealed class MainViewModel : ObservableObject
     {
         _dispatcher.Post(() =>
         {
+            // Serwer nie przydzielił żadnego uprawnienia (np. rola spoza katalogu) —
+            // to brak dostępu, a nie „puste listy danych”.
+            if (AccessDenial.HasNoCapabilities(welcome.Capabilities))
+            {
+                DenyAccess();
+                return;
+            }
+
             _capabilities = new HashSet<string>(welcome.Capabilities, StringComparer.OrdinalIgnoreCase);
             _classroomScope = welcome.ClassroomScope;
 
@@ -283,6 +317,14 @@ public sealed class MainViewModel : ObservableObject
                 StatusMessage = _connection.LastTransportError is { Length: > 0 } error
                     ? $"Brak połączenia: {error}"
                     : "Brak połączenia z serwerem — dane mogą być nieaktualne.";
+            }
+
+            // 401 przed upgrade'em WebSocket = odmowa dostępu (uczeń, brak grupy),
+            // a nie chwilowy błąd sieci. Nie ponawiamy wizualnie „pustych tabel”.
+            if ((state is ConnectionState.Reconnecting or ConnectionState.Disconnected) &&
+                AccessDenial.IsAuthenticationFailure(_connection.LastTransportError))
+            {
+                DenyAccess();
             }
         });
 
@@ -352,7 +394,7 @@ public sealed class MainViewModel : ObservableObject
 
     private async Task ReloadAllAsync(CancellationToken cancellationToken)
     {
-        if (IsBusy)
+        if (IsBusy || IsAccessDenied)
         {
             return;
         }
@@ -398,6 +440,13 @@ public sealed class MainViewModel : ObservableObject
         {
             _dispatcher.Post(() =>
             {
+                if (AccessDenial.IsForbidden(ex))
+                {
+                    DenyAccess();
+                    IsBusy = false;
+                    return;
+                }
+
                 StatusMessage = FormatError("Nie udało się pobrać danych", ex);
                 IsBusy = false;
             });
@@ -406,6 +455,11 @@ public sealed class MainViewModel : ObservableObject
 
     private async Task ReloadComputersAsync(CancellationToken cancellationToken)
     {
+        if (IsAccessDenied)
+        {
+            return;
+        }
+
         try
         {
             var computers = await _api
@@ -420,12 +474,26 @@ public sealed class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            _dispatcher.Post(() => StatusMessage = FormatError("Nie udało się pobrać komputerów", ex));
+            _dispatcher.Post(() =>
+            {
+                if (AccessDenial.IsForbidden(ex))
+                {
+                    DenyAccess();
+                    return;
+                }
+
+                StatusMessage = FormatError("Nie udało się pobrać komputerów", ex);
+            });
         }
     }
 
     private async Task ReloadAuditAsync(CancellationToken cancellationToken)
     {
+        if (IsAccessDenied)
+        {
+            return;
+        }
+
         if (!CanReadAudit)
         {
             _dispatcher.Post(() =>
@@ -459,7 +527,15 @@ public sealed class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             _dispatcher.Post(() =>
-                AuditSummaryText = FormatError("Nie udało się pobrać audytu", ex));
+            {
+                if (AccessDenial.IsForbidden(ex))
+                {
+                    DenyAccess();
+                    return;
+                }
+
+                AuditSummaryText = FormatError("Nie udało się pobrać audytu", ex);
+            });
         }
     }
 
@@ -542,6 +618,33 @@ public sealed class MainViewModel : ObservableObject
         ClearPendingAction();
         StatusMessage = "Anulowano przygotowaną akcję. Nic nie zostało zmienione.";
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Wprowadza stan „Brak dostępu”: czyści wszystkie kolekcje i uprawnienia, chowa akcje,
+    /// zostawia wyłącznie komunikat. Wywoływane wyłącznie z wątku UI (<see cref="IUiDispatcher"/>).
+    /// </summary>
+    private void DenyAccess()
+    {
+        _capabilities = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        IsAccessDenied = true;
+        CanControlComputers = false;
+        CanWriteUsers = false;
+        CanReadAudit = false;
+        CanConfirmAction = false;
+        _pendingAction = null;
+        PendingActionText = null;
+        TemporaryPasswordText = null;
+
+        Classrooms.Clear();
+        Computers.Clear();
+        Logins.Clear();
+        AuditItems.Clear();
+
+        IdentityText = AccessDenial.Identity;
+        FreshnessText = "Dane: —";
+        AuditSummaryText = AccessDenial.Message;
+        StatusMessage = AccessDenial.Message;
     }
 
     private void ClearPendingAction()

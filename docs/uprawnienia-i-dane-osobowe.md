@@ -15,6 +15,15 @@ Serwer jest jedynym miejscem egzekwowania uprawnień. Klient może ukrywać akcj
 | `users.write` | ✔ | ✘ | ✘ |
 | `computers.control` | ✔ | ✘ | ✘ |
 | `audit.read` | ✔ | ✘ | ✘ |
+| `topology.read` (D7 = C) | ✔ | ✔ | ✔ |
+| `files.read` (D4, tylko metadane `/pepsi`) | ✔ | ✔ | ✔ |
+
+**Uczeń / konto w grupie wykluczającej (`Security:DeniedGroups`, np. `ZSE-Uczniowie`) → brak dostępu.**
+Uczniowie nie mają żadnej roli ani uprawnienia: serwer odrzuca połączenie HTTP 401 przed upgrade'em
+WebSocket (także wtedy, gdy konto omyłkowo trafiło do `ZSE-Admin-Nauczyciele` — D10 = A, deny overrides),
+zapisuje wpis `auth.rejected` i nie tworzy sesji. Rola spoza katalogu (np. `Student`) ma
+`Array.Empty<string>()` uprawnień, więc każde żądanie kończy się `forbidden`. Nie istnieje rola
+„Uczeń” z uprawnieniami i nie planujemy jej.
 
 Definicje w kodzie: `src/ZseAdmin.Server/Security/Capability.cs` i `RoleCatalog.cs`. Testy pilnują, że Nauczyciel nie dostaje `users.write` ani `computers.control`, a `MessageRouter` i `AdminActionService` odrzucają próby obejścia UI (kryterium M4). `audit.read` jest widoczne wyłącznie w `welcome.capabilities` Administratora.
 
@@ -29,6 +38,14 @@ Definicje w kodzie: `src/ZseAdmin.Server/Security/Capability.cs` i `RoleCatalog.
 
 `WindowsAuthenticator` fail-close: brak którejkolwiek skonfigurowanej grupy `ZSE-Admin-*`
 oznacza HTTP 401 — sesja nie powstaje, a odmowa (`auth.rejected`) trafia do audytu.
+
+**Deny overrides (D10 = A, ZAD-06):** `Security:DeniedGroups` (domyślnie `["ZSE-Uczniowie"]`) jest
+sprawdzane **przed** wyliczeniem roli. Konto z grupy wykluczającej dostaje 401 + `auth.rejected`
+z kodem `denied_group`, nawet jeśli należy do `ZSE-Admin-Administratorzy`. W produkcji
+`ProductionConfigurationGuard` wymaga niepustej listy i odrzuca grupy szerokie (`Domain Users`,
+`Users`, `Everyone`, `Authenticated Users`, `Domain Computers`), bo zablokowałyby konta usługowe.
+Klient na 401 pokazuje ekran „Brak dostępu do ZSE-Admin. Skontaktuj się z administratorem.” —
+nie puste tabele i nie komunikat „brak danych”.
 Przynależność jest normalizowana z postaci `DOMENA\Grupa`, a kolejność ról przy wielu
 grupach: Administrator → Nauczyciel → ReadOnly. Token jest porównywany w czasie stałym.
 
@@ -55,6 +72,10 @@ Każda operacja zmieniająca stan (M4) zapisuje: kto, kiedy, na jakim obiekcie, 
 wartość przed i po, z jakiego adresu IP i z jakim wynikiem. Audyt obejmuje również
 zdarzenia bezpieczeństwa M3: nieudane uwierzytelnienie, odrzucenie transportu bez `wss`
 i odmowę uprawnienia.
+
+Wpisy odmów dostępu zawierają `detail` z kodem przyczyny: `denied_group`, `role_group_missing`,
+`token_missing`, `token_invalid`, `not_authenticated` (bez danych osobowych poza nazwą konta
+w polu `actor`). Klient nie dostaje tego kodu — widzi wyłącznie ogólny HTTP 401.
 
 Zaimplementowany rejestr: `AuditEntryDto { Id, TimestampUtc, Actor, Role, Capability,
 Action, Target, Before, After, Result, RemoteAddress, Detail }`, retencja 12 miesięcy,
@@ -102,6 +123,10 @@ Narzędzie przetwarza dane uczniów i pracowników: login, nazwę, przynależno�
 - [x] Audyt operacji zapisu: aktor, cel, przed/po, wynik, IP; awaria = `failed`.
 - [x] Serwerowe odrzucenie akcji bez `computers.control` / `users.write`, także przy wykonaniu.
 - [x] Plan na awarię źródła: „dane z godziny X”, `partial`, `upstreamUnavailable`, nie puste ekrany.
+- [x] Uczniowie bez dostępu (ZAD-06): `Security:DeniedGroups` + deny overrides (401 przed upgrade'em),
+  audyt `auth.rejected`, fail-close katalogu uprawnień (`MessageCapabilities`), ekran „Brak dostępu”.
+- [ ] Uzupełnić `Security:DeniedGroups` rzeczywistą nazwą grupy uczniowskiej w domenie (dziś wzorzec
+  `ZSE-Uczniowie`) — zadanie administratora IT przy wdrożeniu.
 
 **Do wykonania w M5 (wymaga środowiska szkoły):**
 

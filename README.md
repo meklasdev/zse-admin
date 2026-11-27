@@ -170,7 +170,9 @@ Szczegóły, konfiguracja i rozwiązywanie problemów: [`docs/uruchomienie.md`](
   przyciski widoczne tylko dla ról z uprawnieniem.
 - **Następny etap: M5 (wdrożenie).** Usługa Windows, certyfikaty, firewall, DPIA, pilotaż.
 - **Nowy backlog (2026-11-26): M6–M8 — w realizacji.** ZAD-01 (system projektowy UI: `Styles/Theme.xaml`
-  + `Styles/Controls.xaml`, zero glow, `Segoe UI`) **zrobione** — PR #18; pozostałe zadania w kolejności
+  + `Styles/Controls.xaml`, zero glow, `Segoe UI`) **zrobione** — PR #18; ZAD-06 (uczniowie bez dostępu:
+  `Security:DeniedGroups`, deny overrides 401 + `auth.rejected`, fail-close `MessageCapabilities`,
+  ekran „Brak dostępu”) **zrobione** — PR #19; pozostałe zadania w kolejności
   z [`docs/zadania/README.md`](docs/zadania/README.md). Notatki zamawiającego
   (sale i diagram topologii w stylu Packet Tracer, brak dostępu uczniów, hosting plików `/pepsi`,
   konto AD → profil lokalny na stacji, ikony, jednolite UI bez poświaty) oraz 10 zadań dla

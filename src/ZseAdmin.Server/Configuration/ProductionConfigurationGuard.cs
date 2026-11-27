@@ -7,6 +7,16 @@ namespace ZseAdmin.Server.Configuration;
 /// </summary>
 public static class ProductionConfigurationGuard
 {
+    /// <summary>Grupy zbyt szerokie dla deny overrides — blokowałyby konta usług i administracji.</summary>
+    private static readonly HashSet<string> BroadGroups = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Domain Users",
+        "Users",
+        "Everyone",
+        "Authenticated Users",
+        "Domain Computers"
+    };
+
     public static IReadOnlyList<string> Validate(ZseAdminOptions options, SecurityOptions security)
     {
         var errors = new List<string>();
@@ -46,6 +56,25 @@ public static class ProductionConfigurationGuard
             !string.Equals(teacherRole, "Teacher", StringComparison.OrdinalIgnoreCase))
         {
             errors.Add($"Security:RoleGroups musi mapować '{SecurityOptions.TeacherGroup}' na rolę Teacher.");
+        }
+
+        // D10 = A: brak grupy wykluczającej to cichy „uczniowie nie są blokowani” — błąd startu.
+        if (security.DeniedGroups.Count == 0)
+        {
+            errors.Add(
+                "Security:DeniedGroups musi zawierać wąską grupę wykluczającą (np. 'ZSE-Uczniowie') — " +
+                "inaczej uczniowie nie są blokowani (D10).");
+        }
+
+        foreach (var group in security.DeniedGroups)
+        {
+            var name = Security.RoleCatalog.ShortName(group);
+            if (BroadGroups.Contains(name))
+            {
+                errors.Add(
+                    $"Security:DeniedGroups nie może zawierać grupy '{name}' — zablokowałaby także " +
+                    "konta usługowe i administracyjne. Użyj wąskiej grupy uczniowskiej.");
+            }
         }
 
         return errors;

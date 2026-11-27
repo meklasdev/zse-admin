@@ -24,7 +24,7 @@
   <ItemGroup Condition="'$(ZseAdminClientBundle)' == 'true'">
     <!-- Klient demo wymusza własną konfigurację mocków; nie kopiuj ustawień serwera
          obok appsettings.json klienta ani do pakietu jednego EXE. -->
-    <Content Update="appsettings.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
+    <Content Remove="@(Content)" />
   </ItemGroup>
 
   <ItemGroup>

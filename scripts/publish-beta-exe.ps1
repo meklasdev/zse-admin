@@ -25,7 +25,6 @@ Write-Host "Publikuję klienta WPF + lokalne API mock w jednym procesie..." -For
     -r $Runtime `
     --self-contained true `
     -p:PublishSingleFile=true `
-    -p:IncludeAllContentForSelfExtract=true `
     -p:ZseAdminClientBundle=true `
     -o $Output
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish zakończył się kodem $LASTEXITCODE." }

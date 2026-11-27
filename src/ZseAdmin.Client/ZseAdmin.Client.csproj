@@ -14,6 +14,8 @@
   <ItemGroup>
     <ProjectReference Include="..\ZseAdmin.Client.Core\ZseAdmin.Client.Core.csproj" />
     <ProjectReference Include="..\ZseAdmin.Contracts\ZseAdmin.Contracts.csproj" />
+    <ProjectReference Include="..\ZseAdmin.Server\ZseAdmin.Server.csproj" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
   <ItemGroup>

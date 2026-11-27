@@ -4,7 +4,21 @@ Demo beta to przeglądarkowy, responsywny podgląd interfejsu z fikcyjnymi danym
 
 > **Bezpieczeństwo:** ten podgląd jest całkowicie statyczny i nie łączy się z serwerem, WebSocketem ani AD. Wszystkie nazwiska, konta, adresy i zdarzenia są przykładowe. Przyciski akcji pokazują symulację — niczego nie restartują, nie blokują ani nie zmieniają. To nie jest paczka produkcyjna ani rzeczywiste środowisko beta do podłączania danych szkolnych.
 
-## Uruchomienie
+## Wersja przeglądarkowa
+
+Podgląd w przeglądarce jest osobnym, responsywnym prototypem — **nie jest zrzutem 1:1 klienta WPF**. Dane są generowane lokalnie przez `demo.js`, a ekran ma własny układ HTML/CSS.
+
+## Rzeczywisty klient WPF jako EXE
+
+Do obejrzenia interfejsu aplikacji z repozytorium użyj publikacji beta dla Windows:
+
+```powershell
+./scripts/publish-beta-exe.ps1 -Runtime win-x64
+```
+
+Wynik: `artifacts/beta-exe/ZseAdmin.Client.exe`. Uruchom go w Windows. To istniejący klient WPF, a serwer WebSocket z mockami uruchamia się **wewnątrz tego samego procesu**, na losowym porcie `127.0.0.1`. Po zamknięciu okna serwer jest zatrzymywany. W tej konfiguracji wymuszone są dane przykładowe i uwierzytelnianie lokalne; aplikacja nie łączy się z AD. Publikacja jest samodzielna (`win-x64`, .NET dołączony), ale plik `appsettings.json` pozostaje obok EXE jako ustawienie uruchomienia.
+
+Nie uruchamiaj tej komendy na Linux/macOS — wymaga Windows SDK i toolchainu WPF. Bieżące środowisko robocze nie ma `dotnet`, więc gotowego pliku EXE nie mogę tu zbudować; skrypt jest przygotowany do uruchomienia na Windows lub w CI.
 
 ### Z serwerem aplikacji
 

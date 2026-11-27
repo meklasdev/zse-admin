@@ -33,9 +33,19 @@ Kolektor logowań startuje od razu i co 60 s dopisuje nowe zdarzenia (`event.log
 
 ## 3. Klient WPF
 
+W trybie developerskim klient uruchamia zintegrowany serwer mocków wewnątrz tego samego procesu WPF, na losowym porcie loopback. Nie wymaga osobnego terminala ani konfiguracji `ServerUrl`.
+
 ```powershell
 dotnet run --project src/ZseAdmin.Client
 ```
+
+Aby opublikować samodzielne demo beta jako EXE dla Windows x64:
+
+```powershell
+./scripts/publish-beta-exe.ps1 -Runtime win-x64
+```
+
+Uruchom `artifacts/beta-exe/ZseAdmin.Client.exe`. Jest to istniejący interfejs WPF z fikcyjnymi danymi; lokalny API mock działa tylko na `127.0.0.1` i kończy się razem z aplikacją. Szczegóły: [`demo-beta.md`](demo-beta.md).
 
 Klient czyta `appsettings.json` z katalogu wyjściowego:
 

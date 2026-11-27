@@ -1,7 +1,7 @@
 # Backlog zadań dla deweloperów (2026-11-26)
 
-**Status:** propozycja do zaplanowania. Żadne zadanie nie jest jeszcze rozpoczęte — ten katalog
-zawiera specyfikacje do implementacji, nie implementację.
+**Status:** implementacja rozpoczęta. ZAD-01 zrobione (PR #18); pozostałe zadania w kolejce —
+ten katalog zawiera specyfikacje do implementacji, nie implementację.
 **Materiał wejściowy:** [`../notatki-zamawiajacego-2026-11-26.md`](../notatki-zamawiajacego-2026-11-26.md)
 **Obowiązujący styl:** [`../ui-design-system.md`](../ui-design-system.md) (spójne UI, zero glow)
 **Plan etapów:** [`../roadmapa.md`](../roadmapa.md) (M6–M8)
@@ -22,18 +22,18 @@ Bez kryteriów nie zamykamy zadania. Zmiany w protokole są kompatybilne wstecz 
 
 ## Lista zadań
 
-| ID | Zadanie | Etap | Priorytet | Zależy od | Plik |
-|---|---|---|---|---|---|
-| ZAD-01 | System projektowy UI: tokeny, `ResourceDictionary`, refactor „zero glow” | M6 | P0 | — (D9: `Segoe UI`) | [`01-design-system.md`](01-design-system.md) |
-| ZAD-02 | Ikony: dodanie `SvgIcons 0.1.10`, weryfikacja w CI, jedno źródło ikon | M6 | P0 | ZAD-01 (D8 = B) | [`02-ikony-svg.md`](02-ikony-svg.md) |
-| ZAD-03 | Formularze dwukolumnowe, liczniki znaków, przerywana strefa upuszczania | M6 | P1 | ZAD-01, ZAD-02 | [`03-formularze-dwukolumnowe.md`](03-formularze-dwukolumnowe.md) |
-| ZAD-04 | Model topologii: sale wg listy admina → węzły/łącza, `topology.json`, DTO | M7 | P1 | D1: lista od admina; D7: wszystkie role | [`04-model-topologii.md`](04-model-topologii.md) |
-| ZAD-05 | Widok topologii: grafiki urządzeń + układ sali + diagram połączeń | M7 | P1 | ZAD-01, ZAD-02, ZAD-04 (D2, D7) | [`05-widok-topologii.md`](05-widok-topologii.md) |
-| ZAD-06 | Uczniowie bez dostępu: deny-by-default na serwerze + audyt odmów | M8 | P0 | — (D10 = A) | [`06-dostep-uczniow.md`](06-dostep-uczniow.md) |
-| ZAD-07 | `/pepsi` — backend tylko do odczytu, `Root` jako UNC (`files.list`) | M8 | P1 | ZAD-06 (D3: UNC, D4: wszystkie role) | [`07-pliki-pepsi-backend.md`](07-pliki-pepsi-backend.md) |
-| ZAD-08 | `/pepsi` — przeglądarka plików w UI i strefa upuszczania | M8 | P2 | ZAD-01, ZAD-03, ZAD-07 (D6) | [`08-pliki-pepsi-ui.md`](08-pliki-pepsi-ui.md) |
-| ZAD-09 | Konto AD vs profil/konto lokalne na stacji w historii logowań | M8 | P1 | — (D5 = A, D6) | [`09-konto-ad-vs-lokalne.md`](09-konto-ad-vs-lokalne.md) |
-| ZAD-10 | CI „zero glow”, dostępność, szablon zadania i domknięcie dokumentacji | M6–M8 | P1 | ZAD-01 | [`10-ci-dokumentacja-dostepnosc.md`](10-ci-dokumentacja-dostepnosc.md) |
+| ID | Zadanie | Etap | Priorytet | Zależy od | Plik | Status |
+|---|---|---|---|---|---|---|
+| ZAD-01 | System projektowy UI: tokeny, `ResourceDictionary`, refactor „zero glow” | M6 | P0 | — (D9: `Segoe UI`) | [`01-design-system.md`](01-design-system.md) | **zrobione** (PR #18) |
+| ZAD-02 | Ikony: dodanie `SvgIcons 0.1.10`, weryfikacja w CI, jedno źródło ikon | M6 | P0 | ZAD-01 (D8 = B) | [`02-ikony-svg.md`](02-ikony-svg.md) | do zrobienia |
+| ZAD-03 | Formularze dwukolumnowe, liczniki znaków, przerywana strefa upuszczania | M6 | P1 | ZAD-01, ZAD-02 | [`03-formularze-dwukolumnowe.md`](03-formularze-dwukolumnowe.md) | do zrobienia |
+| ZAD-04 | Model topologii: sale wg listy admina → węzły/łącza, `topology.json`, DTO | M7 | P1 | D1: lista od admina; D7: wszystkie role | [`04-model-topologii.md`](04-model-topologii.md) | do zrobienia |
+| ZAD-05 | Widok topologii: grafiki urządzeń + układ sali + diagram połączeń | M7 | P1 | ZAD-01, ZAD-02, ZAD-04 (D2, D7) | [`05-widok-topologii.md`](05-widok-topologii.md) | do zrobienia |
+| ZAD-06 | Uczniowie bez dostępu: deny-by-default na serwerze + audyt odmów | M8 | P0 | — (D10 = A) | [`06-dostep-uczniow.md`](06-dostep-uczniow.md) | do zrobienia |
+| ZAD-07 | `/pepsi` — backend tylko do odczytu, `Root` jako UNC (`files.list`) | M8 | P1 | ZAD-06 (D3: UNC, D4: wszystkie role) | [`07-pliki-pepsi-backend.md`](07-pliki-pepsi-backend.md) | do zrobienia |
+| ZAD-08 | `/pepsi` — przeglądarka plików w UI i strefa upuszczania | M8 | P2 | ZAD-01, ZAD-03, ZAD-07 (D6) | [`08-pliki-pepsi-ui.md`](08-pliki-pepsi-ui.md) | do zrobienia |
+| ZAD-09 | Konto AD vs profil/konto lokalne na stacji w historii logowań | M8 | P1 | — (D5 = A, D6) | [`09-konto-ad-vs-lokalne.md`](09-konto-ad-vs-lokalne.md) | do zrobienia |
+| ZAD-10 | CI „zero glow”, dostępność, szablon zadania i domknięcie dokumentacji | M6–M8 | P1 | ZAD-01 | [`10-ci-dokumentacja-dostepnosc.md`](10-ci-dokumentacja-dostepnosc.md) | do zrobienia |
 
 **Kolejność sugerowana:** ZAD-01 + ZAD-06 (równolegle, bezpieczeństwo i fundament UI) →
 ZAD-02 / ZAD-03 / ZAD-04 → ZAD-05 / ZAD-09 → ZAD-07 → ZAD-08 → ZAD-10 na koniec każdego etapu.

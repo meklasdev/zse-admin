@@ -169,7 +169,9 @@ Szczegóły, konfiguracja i rozwiązywanie problemów: [`docs/uruchomienie.md`](
   dwukrokowe potwierdzenie, `upstreamUnavailable` przy awarii, wpis audytowy przed/po,
   przyciski widoczne tylko dla ról z uprawnieniem.
 - **Następny etap: M5 (wdrożenie).** Usługa Windows, certyfikaty, firewall, DPIA, pilotaż.
-- **Nowy backlog (2026-11-26): M6–M8 — do zaplanowania, niezaimplementowane.** Notatki zamawiającego
+- **Nowy backlog (2026-11-26): M6–M8 — w realizacji.** ZAD-01 (system projektowy UI: `Styles/Theme.xaml`
+  + `Styles/Controls.xaml`, zero glow, `Segoe UI`) **zrobione** — PR #18; pozostałe zadania w kolejności
+  z [`docs/zadania/README.md`](docs/zadania/README.md). Notatki zamawiającego
   (sale i diagram topologii w stylu Packet Tracer, brak dostępu uczniów, hosting plików `/pepsi`,
   konto AD → profil lokalny na stacji, ikony, jednolite UI bez poświaty) oraz 10 zadań dla
   deweloperów z kryteriami Given/When/Then: [`docs/zadania/`](docs/zadania/). Decyzje D1–D10

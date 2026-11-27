@@ -1,7 +1,7 @@
 # Backlog zadań dla deweloperów (2026-11-26)
 
-**Status:** implementacja rozpoczęta. ZAD-01 (PR #18), ZAD-06 (PR #19) i ZAD-11 (zrzuty UI w CI)
-zrobione; pozostałe w kolejce —
+**Status:** implementacja rozpoczęta. ZAD-01 (PR #18), ZAD-06 (PR #19) i ZAD-11 (zrzuty UI w CI,
+PR #21) zrobione; pozostałe w kolejce —
 ten katalog zawiera specyfikacje do implementacji, nie implementację.
 **Materiał wejściowy:** [`../notatki-zamawiajacego-2026-11-26.md`](../notatki-zamawiajacego-2026-11-26.md)
 **Obowiązujący styl:** [`../ui-design-system.md`](../ui-design-system.md) (spójne UI, zero glow)
@@ -35,7 +35,7 @@ Bez kryteriów nie zamykamy zadania. Zmiany w protokole są kompatybilne wstecz 
 | ZAD-08 | `/pepsi` — przeglądarka plików w UI i strefa upuszczania | M8 | P2 | ZAD-01, ZAD-03, ZAD-07 (D6) | [`08-pliki-pepsi-ui.md`](08-pliki-pepsi-ui.md) | do zrobienia |
 | ZAD-09 | Konto AD vs profil/konto lokalne na stacji w historii logowań | M8 | P1 | — (D5 = A, D6) | [`09-konto-ad-vs-lokalne.md`](09-konto-ad-vs-lokalne.md) | do zrobienia |
 | ZAD-10 | CI „zero glow”, dostępność, szablon zadania i domknięcie dokumentacji | M6–M8 | P1 | ZAD-01 | [`10-ci-dokumentacja-dostepnosc.md`](10-ci-dokumentacja-dostepnosc.md) | do zrobienia |
-| ZAD-11 | Automatyczne zrzuty UI (100/125/150% DPI) z realnego klienta WPF w GitHub Actions | M6 | P1 | ZAD-01, ZAD-06 | [`11-zrzuty-ui-ci.md`](11-zrzuty-ui-ci.md) | **zrobione** |
+| ZAD-11 | Automatyczne zrzuty UI (100/125/150% DPI) z realnego klienta WPF w GitHub Actions | M6 | P1 | ZAD-01, ZAD-06 | [`11-zrzuty-ui-ci.md`](11-zrzuty-ui-ci.md) | **zrobione** (PR #21) |
 
 **Kolejność sugerowana:** ZAD-01 + ZAD-06 (równolegle, bezpieczeństwo i fundament UI) →
 ZAD-02 / ZAD-03 / ZAD-04 → ZAD-05 / ZAD-09 → ZAD-07 → ZAD-08 → ZAD-10 na koniec każdego etapu.

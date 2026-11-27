@@ -175,7 +175,7 @@ Szczegóły, konfiguracja i rozwiązywanie problemów: [`docs/uruchomienie.md`](
   + `Styles/Controls.xaml`, zero glow, `Segoe UI`) **zrobione** — PR #18; ZAD-06 (uczniowie bez dostępu:
   `Security:DeniedGroups`, deny overrides 401 + `auth.rejected`, fail-close `MessageCapabilities`,
   ekran „Brak dostępu”) **zrobione** — PR #19; ZAD-11 (automatyczne zrzuty UI z realnego klienta WPF
-  w GitHub Actions, artefakt `ui-screenshots`) **zrobione**; pozostałe zadania w kolejności
+  w GitHub Actions, artefakt `ui-screenshots`) **zrobione** — PR #21; pozostałe zadania w kolejności
   z [`docs/zadania/README.md`](docs/zadania/README.md). Notatki zamawiającego
   (sale i diagram topologii w stylu Packet Tracer, brak dostępu uczniów, hosting plików `/pepsi`,
   konto AD → profil lokalny na stacji, ikony, jednolite UI bez poświaty) oraz 10 zadań dla

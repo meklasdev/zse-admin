@@ -3,7 +3,7 @@
 **Etap:** M6 (domknięcie ZAD-01) · **Priorytet:** P1 · **Zależy od:** ZAD-01, ZAD-06
 **Blokuje:** domknięcie checklisty `ui-design-system.md` §5 (zrzuty 100/125/150% DPI)
 **Etykiety:** `enhancement`, `documentation`, `ci` · **Szacunek:** 1 dzień
-**Status:** **zrobione** (PR w tym zadaniu, 2026-11-27)
+**Status:** **zrobione** (PR #21, 2026-11-27)
 
 ## Kontekst
 
@@ -96,6 +96,22 @@ w DIP, rośnie wyłącznie gęstość pikseli. To dokładnie ta klasa problemu, 
 - [x] Dokumentacja: `uruchomienie.md` (uruchomienie lokalne), `ui-design-system.md` §5.1,
   `README.md`, `roadmapa.md`, `zadania/README.md`.
 - [x] `dotnet build -c Release` i `dotnet test` zielone na `windows-latest`; zrzuty w artefakcie.
+
+## Realizacja (2026-11-27, PR #21)
+
+- **Job `screenshots` zielony** na `windows-latest`: artefakt `ui-screenshots` (~1,2 MB, 6 plików PNG),
+  podsumowanie w runie i komentarz w PR z linkiem do artefaktu.
+- **Serwer i zrzuty w jednym kroku** — runner kończy procesy uruchomione w poprzednim kroku, więc
+  serwer w tle nie przetrwałby do kolejnego; `finally` zatrzymuje proces po zrzutach.
+- **Content root serwera:** uruchomienie `ZseAdmin.Server.dll` z katalogu repo nie widzi
+  `appsettings.json` (brak tokenów → HTTP 401). Rozwiązanie: `dotnet run --project src/ZseAdmin.Server
+  --no-build --no-launch-profile`, gdzie content root = katalog projektu (appsettings + tokeny dev).
+  Ten sam błąd wykryłby każdy ręczny test po skopiowaniu samego `.dll` — warto o tym pamiętać przy
+  wdrożeniu (w publikacji pliki konfiguracyjne są obok exe).
+- **Diagnostyka bez dostępu do logów:** krok wypisuje wyjście narzędzia jako adnotację `::error::`,
+  a przy odmowie harness podaje status, stan połączenia i `LastTransportError` (kody `2/4/5`).
+- Zrzuty pokazują realne dane mock: pracownie, komputery z IP/stanem, logowania, świeżość i tożsamość
+  `dev-admin (Administrator)`.
 
 ## Ryzyka i decyzje
 

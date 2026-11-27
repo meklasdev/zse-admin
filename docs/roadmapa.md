@@ -121,14 +121,14 @@ Od M2 historia ma własne źródło; przełącznik M1.5 w produkcji jest blokowa
 ## M6–M8 — Nowy backlog (2026-11-26, do zaplanowania)
 
 **Status:** specyfikacja i zadania gotowe, implementacja **w toku** (ZAD-01 — PR #18, ZAD-06 — PR #19,
-ZAD-11 — zrzuty UI w CI). Źródło:
+ZAD-11 — zrzuty UI w CI, PR #21). Źródło:
 [`notatki-zamawiajacego-2026-11-26.md`](notatki-zamawiajacego-2026-11-26.md). Szczegółowe zakresy,
 pliki, testy i kryteria akceptacji dla każdego zadania: [`zadania/`](zadania/).
 Zasady M0–M4 (ADR-0003, 0007, 0008) obowiązują; zmiany protokołu są rozszerzeniami wersji 1.
 
 | Etap | Zakres | Zadania |
 |---|---|---|
-| **M6 — System projektowy UI** | spójne, płaskie UI: 1px obramowania, tokeny, zero cieni/poświaty, ikony, formularze dwukolumnowe, kontrola w CI | [ZAD-01](zadania/01-design-system.md) ✔ (PR #18), [ZAD-02](zadania/02-ikony-svg.md), [ZAD-03](zadania/03-formularze-dwukolumnowe.md), [ZAD-10](zadania/10-ci-dokumentacja-dostepnosc.md), [ZAD-11](zadania/11-zrzuty-ui-ci.md) ✔ |
+| **M6 — System projektowy UI** | spójne, płaskie UI: 1px obramowania, tokeny, zero cieni/poświaty, ikony, formularze dwukolumnowe, kontrola w CI | [ZAD-01](zadania/01-design-system.md) ✔ (PR #18), [ZAD-02](zadania/02-ikony-svg.md), [ZAD-03](zadania/03-formularze-dwukolumnowe.md), [ZAD-10](zadania/10-ci-dokumentacja-dostepnosc.md), [ZAD-11](zadania/11-zrzuty-ui-ci.md) ✔ (PR #21) |
 | **M7 — Topologia pracowni** | fizyczne sale + `topology.json` + diagram połączeń w stylu Cisco Packet Tracer | [ZAD-04](zadania/04-model-topologii.md), [ZAD-05](zadania/05-widok-topologii.md) |
 | **M8 — Dostęp, pliki i tożsamość** | uczniowie bez dostępu (fail-close), tylko odczyt `/pepsi`, konto AD vs profil lokalny na stacji | [ZAD-06](zadania/06-dostep-uczniow.md) ✔ (PR #19), [ZAD-07](zadania/07-pliki-pepsi-backend.md), [ZAD-08](zadania/08-pliki-pepsi-ui.md), [ZAD-09](zadania/09-konto-ad-vs-lokalne.md) |
 

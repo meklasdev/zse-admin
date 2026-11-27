@@ -20,7 +20,7 @@ każdy nowy widok (topologia, pliki) będzie wyglądał inaczej.
    - brushy z tabeli [`../ui-design-system.md`](../ui-design-system.md) §2.1,
    - `Thickness.Border1 = 1`, promienie `6 / 8 / 999`, odstępy `4/8/12/16/24/32`, `Size.FormLabel = 260`,
    - skala typografii `Text.Title/Section/Body/Label/Meta`, jeden `FontFamily` z fallbackiem
-     `Segoe UI` (bundling fontu dopiero po decyzji **D9**).
+     `Segoe UI` — **D9 = A (podjęte):** nie dołączamy Inter / Plus Jakarta Sans.
 2. `src/ZseAdmin.Client/Styles/Controls.xaml` (nowy): style niejawne dla `Button`, `TextBox`,
    `PasswordBox`, `ComboBox`, `ListBox`, `ListBoxItem`, `TabControl`/`TabItem`, `DataGrid`,
    `TextBlock` (`Text.*`) oraz style jawne `TagPill`, `SectionSeparator`, `DropZone`, `CardSurface`.
@@ -39,7 +39,7 @@ każdy nowy widok (topologia, pliki) będzie wyglądał inaczej.
 - Ikony i zależność `SvgIcons` (ZAD-02), formularze dwukolumnowe (ZAD-03), nowe widoki (ZAD-05,
   ZAD-08), kontrola w CI (ZAD-10 — ale ten PR nie może wprowadzać zakazanych efektów).
 - Logika `MainViewModel`, protokół, serwer, uprawnienia, konfiguracja produkcyjna.
-- Dołączanie fontów Inter / Plus Jakarta Sans przed decyzją **D9**.
+- Dołączanie fontów Inter / Plus Jakarta Sans — **D9 = A:** krój systemowy, bez bundlingu.
 
 ## Kryteria akceptacji (Given / When / Then)
 
@@ -72,13 +72,13 @@ każdy nowy widok (topologia, pliki) będzie wyglądał inaczej.
 - [ ] `Theme.xaml` i `Controls.xaml` istnieją i są jedynym źródłem wartości wizualnych.
 - [ ] Checklista [`../ui-design-system.md`](../ui-design-system.md) §5 odhaczona dla `MainWindow`.
 - [ ] PR zawiera zrzuty „przed / po” dla 3 skal DPI.
-- [ ] CI zielone; brak nowych paczek NuGet (ADR-0001 nienaruszony).
+- [ ] CI zielone; to zadanie nie dodaje paczek NuGet (D8 = B realizuje ZAD-02).
 - [ ] Status w [`README.md`](README.md) uzupełniony.
 
 ## Ryzyka i decyzje
 
-- **D9 (font):** bez zgody na bundling używamy `Segoe UI`; zmiana później to jedna linijka w
-  `Theme.xaml`, o ile widoki nie mają własnych `FontFamily`.
+- **D9 = A (podjęte):** obowiązuje `Segoe UI`; zmiana później to jedna linijka w `Theme.xaml`,
+  o ile widoki nie mają własnych `FontFamily`. Nie dołączamy plików fontu.
 - Styl niejawny (`TargetType` bez `x:Key`) może „przebić” style w kontrolkach zewnętrznych —
   unikać globalnych styli dla `Border`/`Grid`.
 - Wysoki kontrast Windows: po zmianie tokenów sprawdzić, czy `Brush.AccentSubtle` nie zlewa się

@@ -1,6 +1,6 @@
 # ZAD-04 — Model topologii: sale, pracownie, węzły i łącza
 
-**Etap:** M7 · **Priorytet:** P1 · **Zależy od:** decyzja **D1** (i **D7** dla uprawnień)
+**Etap:** M7 · **Priorytet:** P1 · **Zależy od:** — (**D1** = lista sal od admina; **D7** = wszystkie role — podjęte)
 **Blokuje:** ZAD-05
 **Etykiety:** `enhancement`, `documentation` · **Szacunek:** 3–4 dni
 **Źródło:** [`../notatki-zamawiajacego-2026-11-26.md`](../notatki-zamawiajacego-2026-11-26.md) F1, F2
@@ -44,13 +44,15 @@ odkrywaniem sieci (SNMP/LLDP) ani danymi wyprowadzonymi z DN w AD.
    salami (np. `uplink-A`) zdefiniować w jednym miejscu i referencjonować — bez duplikowania.
 2. `ZseAdmin.Contracts`: nowe rekordy `RoomDto`, `NetworkNodeDto`, `NetworkLinkDto`,
    `TopologyDto`, enum `NetworkNodeKind`; opcjonalne pole `roomId` w `ClassroomDto`
-   (kompatybilne wstecz). Każda odpowiedź zawiera `DataFreshnessDto` z `source = "topology.json"`.
+   (kompatybilne wstecz). Opcjonalny `imageRef` na węźle wskazuje grafikę urządzenia (**D2**);
+   domyślnie używany jest `IconKey` z ZAD-02. Każda odpowiedź ma `DataFreshnessDto`
+   z `source = "topology.json"`.
 3. `src/ZseAdmin.Server/Infrastructure/Topology/TopologyMap.cs`: wczytanie, walidacja i mapowanie
-   (na wzór `ClassroomMap`), `Resolve(roomId)`, filtrowanie po `classroomScope` dla nauczyciela
-   (**D7**).
+   (na wzór `ClassroomMap`), `Resolve(roomId)`. **D7 = C:** brak filtrowania po `classroomScope`
+   dla topologii — wszystkie zalogowane role widzą wszystkie sale.
 4. Protokół: `MessageTypes.TopologyGet = "topology.get"`, `TopologyGetRequest` (opcjonalny
    `roomId`), `TopologyResponse`; `Capability.TopologyRead`; wpis w `RoleCatalog`
-   (Administrator + ewentualnie Teacher/ReadOnly wg **D7**); router + `CapabilityGuard`.
+   (**D7 = C:** Administrator, Teacher i ReadOnly); router + `CapabilityGuard`.
 5. Dokumentacja: [`../model-danych.md`](../model-danych.md) (nowe byty + semantyka braków),
    [`../api-websocket.md`](../api-websocket.md) §3 i §7.1 (nowy typ w wersji 1),
    [`../architektura.md`](../architektura.md) §6 (warstwa „sala”),
@@ -58,8 +60,9 @@ odkrywaniem sieci (SNMP/LLDP) ani danymi wyprowadzonymi z DN w AD.
 
 ## Poza zakresem
 
-- Rysowanie diagramu (ZAD-05), zdjęcia szaf/patch paneli (**D2**), automatyczne wykrywanie
-  topologii (LLDP/SNMP/ARP), edycja topologii z poziomu UI, zapis do AD.
+- Rysowanie diagramów i grafik urządzeń (ZAD-05), fotografie szaf/patch paneli (**D2** = gotowe
+  rysunki, nie foto), automatyczne wykrywanie topologii (LLDP/SNMP/ARP), edycja topologii z poziomu
+  UI, zapis do AD.
 - Zmiana `protocolVersion` (nowy typ + opcjonalne pole są zgodne wstecz), zmiana `classrooms.json`,
   nowa baza danych (ADR-0003).
 
@@ -78,9 +81,10 @@ odkrywaniem sieci (SNMP/LLDP) ani danymi wyprowadzonymi z DN w AD.
    dostaję `error: upstreamUnavailable` z nazwą źródła, a nie pustą listę sal.
 5. **Given** klient w wersji M4 (bez obsługi `topology.get`), **when** połączy się z nowym serwerem,
    **then** `welcome.protocolVersion` nadal wynosi `1`, a klient ignoruje nowe `capability` i działa.
-6. **Given** nauczyciel z `classroomScope = ["prac-101"]` i decyzja **D7** = „widzi swoje sale”,
-   **when** wyśle `topology.get` bez `roomId`, **then** serwer zwraca wyłącznie sale powiązane z
-   `prac-101` — filtrowanie po stronie serwera, nie w UI.
+6. **Given** nauczyciel z `classroomScope = ["prac-101"]` i **D7 = C**, **when** wyśle
+   `topology.get` bez `roomId`, **then** serwer zwraca **wszystkie** sale (bez filtra `classroomScope`
+   dla topologii), a rolę bez `topology.read` i tak odrzuca `forbidden`. To świadome odstępstwo od
+   ADR-0007, dotyczące wyłącznie nowego widoku.
 7. **Given** rola bez `topology.read`, **when** wyśle `topology.get`, **then** `forbidden` i wpis
    audytu `denied` (spójnie z ZAD-06).
 
@@ -89,8 +93,8 @@ odkrywaniem sieci (SNMP/LLDP) ani danymi wyprowadzonymi z DN w AD.
 - `tests/ZseAdmin.Tests/TopologyMapTests.cs` (nowy): poprawna mapa, duplikat `id`, nieistniejący
   endpoint łącza, kolizja `classroomId`, węzeł współdzielony, komputer „niepodpięty”,
   błędny `kind`.
-- `tests/ZseAdmin.Tests/RoleCatalogTests.cs` / protokolarne: `topology.read` tylko w dozwolonych
-  rolach; `MessageRouter` odrzuca żądanie bez uprawnienia.
+- `tests/ZseAdmin.Tests/RoleCatalogTests.cs` / protokolarne: `topology.read` we wszystkich trzech
+  rolach aplikacji (D7 = C); `MessageRouter` odrzuca rolę bez uprawnienia i ucznia.
 - `tests/ZseAdmin.Tests/ProtocolSerializationTests.cs`: nowe DTO serializują się zgodnie z
   konwencją `camelCase`, a starszy klient ignoruje dodatkowe pole.
 
@@ -100,15 +104,15 @@ odkrywaniem sieci (SNMP/LLDP) ani danymi wyprowadzonymi z DN w AD.
 - [ ] CI kopiuje `topology.json` do artefaktu (rozszerzyć kontrolę w
   [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) o ten plik, jak dla `classrooms.json`).
 - [ ] Dokumentacja protokołu i modelu zaktualizowana; `protocolVersion = 1`.
-- [ ] Decyzje **D1**, **D7** zapisane w notatkach zamawiającego; status w [`README.md`](README.md).
+- [ ] Decyzje **D1**, **D7** zapisane w notatkach §4 (podjęte); status w [`README.md`](README.md).
 
 ## Ryzyka i decyzje
 
-- **D1** decyduje, czy sala może mieć kilka pracowni i odwrotnie — od tego zależy kształt walidacji.
-  Domyślna propozycja: relacja jawna, wiele-do-wielu dopuszczone, bez wyprowadzania z OU.
-- **D7** decyduje o `topology.read` dla Nauczyciela; do czasu decyzji przyjąć wariant „tylko
-  Administrator” (fail-close) i zostawić konfigurację roli w jednym miejscu.
+- **D1 = C (podjęte):** administrator przygotowuje listę sal i `classroomIds` w `topology.json`.
+  Relacja pozostaje jawna i walidowana, bez wyprowadzania z OU; przykładowe wpisy są tylko wzorcem.
+- **D7 = C (podjęte):** `topology.read` dla Administrator, Teacher i ReadOnly, bez filtra sal.
+  Uczniowie są odrzucani wcześniej przez ZAD-06; konfiguracja roli zostaje w jednym miejscu.
 - Nadmiarowy opis portów może szybko się zdezaktualizować — `freshness` musi mówić, skąd dane
   i kiedy wczytane; nie wolno sugerować, że diagram odzwierciedla bieżący stan łączy.
-- **D2** (zdjęcia) nie blokuje tego zadania: model ma pole na opcjonalny `attachmentRef`, ale
-  bez podjętej decyzji nie jest ono wypełniane.
+- **D2 = B (podjęte):** model ma opcjonalny `imageRef` na węźle; domyślnie grafiki pochodzą
+  z `IconKey` (ZAD-02/05). Źródło ewentualnych własnych plików szkoły doprecyzowuje §4.1 notatek.

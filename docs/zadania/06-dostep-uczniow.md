@@ -1,7 +1,7 @@
 # ZAD-06 — Uczniowie bez dostępu: deny-by-default na serwerze
 
 **Etap:** M8 · **Priorytet:** P0 (bezpieczeństwo, przed `/pepsi` i topologią dla nauczycieli)
-**Zależy od:** decyzja **D10** · **Blokuje:** ZAD-07, ZAD-08
+**Zależy od:** — (**D10 = A**: deny overrides, podjęte) · **Blokuje:** ZAD-07, ZAD-08
 **Etykiety:** `enhancement`, `help wanted` · **Szacunek:** 2 dni
 **Źródło:** [`../notatki-zamawiajacego-2026-11-26.md`](../notatki-zamawiajacego-2026-11-26.md) F3
 
@@ -19,10 +19,10 @@ nie jest zabezpieczeniem — każde żądanie sprawdza `CapabilityGuard` w `Mess
 
 ## Zakres
 
-1. Konfiguracja `Security:DeniedGroups` (np. `ZSE-Uczniowie`, `Domain Users` wg **D10**) w
+1. Konfiguracja `Security:DeniedGroups` (wąska grupa uczniowska, np. `ZSE-Uczniowie`; **D10 = A**) w
    `appsettings*.json` (produkcja bez tokenów!), z walidacją w `ProductionConfigurationGuard`.
 2. `src/ZseAdmin.Server/Security/WindowsAuthenticator.cs` + `RoleCatalog.cs`:
-   - jawna odmowa dla konta w grupie wykluczającej **przed** wyliczeniem roli (**D10**: deny
+   - jawna odmowa dla konta w grupie wykluczającej **przed** wyliczeniem roli (**D10 = A**: deny
      overrides, czyli uczeń dodany przez pomyłkę do `ZSE-Admin-Nauczyciele` i tak nie wchodzi),
    - odmowa = 401 przed upgrade'em WebSocket + wpis audytu `auth.rejected` z `actor`, `role = none`,
      `detail` bez danych osobowych wykraczających poza nazwę konta,
@@ -43,7 +43,8 @@ nie jest zabezpieczeniem — każde żądanie sprawdza `CapabilityGuard` w `Mess
 
 - Przyznawanie uczniom **jakiegokolwiek** dostępu (nawet tylko do swoich logowań), portal ucznia,
   dane osobowe uczniów w UI.
-- Zmiana mechanizmu Windows/Kerberos, `wss`, `classroomScope`, retencji, ADR-0003/0008.
+- Zmiana mechanizmu Windows/Kerberos, `wss`, `classroomScope` dla **historii logowań**, retencji,
+  ADR-0003/0008. (D7 = C znosi filtr sal wyłącznie dla nowego widoku topologii.)
 - DPIA/klauzule RODO (M5) — zadanie pilnuje tylko technicznej odmowy.
 
 ## Kryteria akceptacji (Given / When / Then)
@@ -51,7 +52,7 @@ nie jest zabezpieczeniem — każde żądanie sprawdza `CapabilityGuard` w `Mess
 1. **Given** konto w grupie `ZSE-Uczniowie` w trybie `Security:Mode = Windows`, **when** próbuje
    połączyć się z `/ws`, **then** serwer zwraca 401 **przed** upgrade'em WebSocket, nie wysyła
    `welcome` i zapisuje wpis audytu `auth.rejected`.
-2. **Given** konto jednocześnie w grupie uczniowskiej i `ZSE-Admin-Nauczyciele` (**D10** = deny
+2. **Given** konto jednocześnie w grupie uczniowskiej i `ZSE-Admin-Nauczyciele` (**D10 = A** — deny
    overrides), **when** uwierzytelniam, **then** połączenie jest odrzucone — odmowa ma pierwszeństwo
    nad przypisaniem roli.
 3. **Given** deweloperski token z rolą nieznaną/`Student`, **when** wyślę kolejno
@@ -73,8 +74,8 @@ nie jest zabezpieczeniem — każde żądanie sprawdza `CapabilityGuard` w `Mess
 - `tests/ZseAdmin.Tests/RoleCatalogTests.cs` (rozszerzyć): nieznana rola → zero uprawnień;
   `Student` nie istnieje jako rola z prawami.
 - `tests/ZseAdmin.Tests/MessageRouterTests.cs` (nowe przypadki): każdy typ wiadomości ma
-  capability; nieznany typ bez mapowania → `forbidden`; `files.*` i `topology.get` dla ReadOnly →
-  `forbidden`.
+  capability; nieznany typ bez mapowania → `forbidden`; `files.*` i `topology.get` dla ReadOnly
+  → **dozwolone** (D4, D7), a dla ucznia → `forbidden`.
 - `tests/ZseAdmin.Tests/DisplayFormatTests.cs` / test ViewModelu: tekst „Brak dostępu” nie jest
   mylony z `completeness = unavailable`.
 
@@ -85,12 +86,12 @@ nie jest zabezpieczeniem — każde żądanie sprawdza `CapabilityGuard` w `Mess
 - [ ] Tabela ról w [`../uprawnienia-i-dane-osobowe.md`](../uprawnienia-i-dane-osobowe.md) zawiera
   wiersz „Uczeń / grupa wykluczająca → brak dostępu”.
 - [ ] `dotnet test` zielone; przebieg CI dołączony do PR.
-- [ ] Decyzja **D10** zapisana; status w [`README.md`](README.md).
+- [ ] Decyzja **D10 = A** zapisana w notatkach §4; status w [`README.md`](README.md).
 
 ## Ryzyka i decyzje
 
-- **D10**: użycie `Domain Users` jako grupy wykluczającej może zablokować też konta serwisowe —
-  wybrać wąską grupę uczniowską i udokumentować wyjątki.
+- **D10 = A (podjęte):** deny overrides. Użycie `Domain Users` jako grupy wykluczającej mogłoby
+  zablokować też konta serwisowe — wybrać wąską grupę uczniowską i udokumentować wyjątki.
 - `RoleCatalog.RolePriority` daje dziś pierwszeństwo Administratorowi; wprowadzenie deny overrides
   zmienia tę regułę — wymagany aneks do ADR-0007 i test regresji dla administratora, który **nie**
   jest uczniem.

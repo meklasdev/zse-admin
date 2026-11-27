@@ -5,6 +5,8 @@ zawiera specyfikacje do implementacji, nie implementację.
 **Materiał wejściowy:** [`../notatki-zamawiajacego-2026-11-26.md`](../notatki-zamawiajacego-2026-11-26.md)
 **Obowiązujący styl:** [`../ui-design-system.md`](../ui-design-system.md) (spójne UI, zero glow)
 **Plan etapów:** [`../roadmapa.md`](../roadmapa.md) (M6–M8)
+**Decyzje:** D1–D10 **podjęte 2026-11-26** — [`../notatki-zamawiajacego-2026-11-26.md`](../notatki-zamawiajacego-2026-11-26.md) §4 (odpowiedzi ABC)
+**Handoff:** [`PROMPT-dla-kolejnego-agenta.md`](PROMPT-dla-kolejnego-agenta.md) — gotowy, samowystarczalny prompt do przekazania implementacji dalej
 
 Zadania powstały z notatki zamawiającego: kilka sal i pracowni, diagram połączeń w stylu Cisco
 Packet Tracer, brak dostępu dla uczniów, hosting plików `/pepsi`, konto AD → profil lokalny na
@@ -22,15 +24,15 @@ Bez kryteriów nie zamykamy zadania. Zmiany w protokole są kompatybilne wstecz 
 
 | ID | Zadanie | Etap | Priorytet | Zależy od | Plik |
 |---|---|---|---|---|---|
-| ZAD-01 | System projektowy UI: tokeny, `ResourceDictionary`, refactor „zero glow” | M6 | P0 | — | [`01-design-system.md`](01-design-system.md) |
-| ZAD-02 | Ikony: weryfikacja `SvgIcons 0.1.10` + ADR-0009 + fallback `Path` | M6 | P0 | ZAD-01 | [`02-ikony-svg.md`](02-ikony-svg.md) |
+| ZAD-01 | System projektowy UI: tokeny, `ResourceDictionary`, refactor „zero glow” | M6 | P0 | — (D9: `Segoe UI`) | [`01-design-system.md`](01-design-system.md) |
+| ZAD-02 | Ikony: dodanie `SvgIcons 0.1.10`, weryfikacja w CI, jedno źródło ikon | M6 | P0 | ZAD-01 (D8 = B) | [`02-ikony-svg.md`](02-ikony-svg.md) |
 | ZAD-03 | Formularze dwukolumnowe, liczniki znaków, przerywana strefa upuszczania | M6 | P1 | ZAD-01, ZAD-02 | [`03-formularze-dwukolumnowe.md`](03-formularze-dwukolumnowe.md) |
-| ZAD-04 | Model topologii: sale → pracownie → węzły/łącza, `topology.json`, DTO | M7 | P1 | — | [`04-model-topologii.md`](04-model-topologii.md) |
-| ZAD-05 | Widok topologii (diagram w stylu Packet Tracer) | M7 | P1 | ZAD-01, ZAD-02, ZAD-04 | [`05-widok-topologii.md`](05-widok-topologii.md) |
-| ZAD-06 | Uczniowie bez dostępu: deny-by-default na serwerze + audyt odmów | M8 | P0 | — | [`06-dostep-uczniow.md`](06-dostep-uczniow.md) |
-| ZAD-07 | `/pepsi` — backend tylko do odczytu (`files.list`, `files.read`) | M8 | P1 | ZAD-06, D3, D4 | [`07-pliki-pepsi-backend.md`](07-pliki-pepsi-backend.md) |
-| ZAD-08 | `/pepsi` — przeglądarka plików w UI i strefa upuszczania | M8 | P2 | ZAD-01, ZAD-03, ZAD-07 | [`08-pliki-pepsi-ui.md`](08-pliki-pepsi-ui.md) |
-| ZAD-09 | Konto AD vs profil/konto lokalne na stacji w historii logowań | M8 | P1 | D5, D6 | [`09-konto-ad-vs-lokalne.md`](09-konto-ad-vs-lokalne.md) |
+| ZAD-04 | Model topologii: sale wg listy admina → węzły/łącza, `topology.json`, DTO | M7 | P1 | D1: lista od admina; D7: wszystkie role | [`04-model-topologii.md`](04-model-topologii.md) |
+| ZAD-05 | Widok topologii: grafiki urządzeń + układ sali + diagram połączeń | M7 | P1 | ZAD-01, ZAD-02, ZAD-04 (D2, D7) | [`05-widok-topologii.md`](05-widok-topologii.md) |
+| ZAD-06 | Uczniowie bez dostępu: deny-by-default na serwerze + audyt odmów | M8 | P0 | — (D10 = A) | [`06-dostep-uczniow.md`](06-dostep-uczniow.md) |
+| ZAD-07 | `/pepsi` — backend tylko do odczytu, `Root` jako UNC (`files.list`) | M8 | P1 | ZAD-06 (D3: UNC, D4: wszystkie role) | [`07-pliki-pepsi-backend.md`](07-pliki-pepsi-backend.md) |
+| ZAD-08 | `/pepsi` — przeglądarka plików w UI i strefa upuszczania | M8 | P2 | ZAD-01, ZAD-03, ZAD-07 (D6) | [`08-pliki-pepsi-ui.md`](08-pliki-pepsi-ui.md) |
+| ZAD-09 | Konto AD vs profil/konto lokalne na stacji w historii logowań | M8 | P1 | — (D5 = A, D6) | [`09-konto-ad-vs-lokalne.md`](09-konto-ad-vs-lokalne.md) |
 | ZAD-10 | CI „zero glow”, dostępność, szablon zadania i domknięcie dokumentacji | M6–M8 | P1 | ZAD-01 | [`10-ci-dokumentacja-dostepnosc.md`](10-ci-dokumentacja-dostepnosc.md) |
 
 **Kolejność sugerowana:** ZAD-01 + ZAD-06 (równolegle, bezpieczeństwo i fundament UI) →
@@ -48,25 +50,30 @@ M6–M8 **nie zastępują M5 (wdrożenie)** z [`../roadmapa.md`](../roadmapa.md)
 pierwszym krokiem przed produkcją; nowe etapy można realizować równolegle po M4, ale ich
 wypuszczenie wymaga domknięcia kwestii RODO/DPIA z M5.
 
-## Decyzje blokujące
+## Decyzje (podjęte 2026-11-26)
 
-Z [`../notatki-zamawiajacego-2026-11-26.md`](../notatki-zamawiajacego-2026-11-26.md) §4:
+Wszystkie D1–D10 zostały podjęte przez zamawiającego w formie ABC. **Jedyne źródło prawdy:**
+[`../notatki-zamawiajacego-2026-11-26.md`](../notatki-zamawiajacego-2026-11-26.md) §4
+(odpowiedzi + interpretacja techniczna) oraz §4.1 (trzy drobne doprecyzowania).
 
-| Decyzja | Blokuje | Krótko |
+| Decyzja | Odpowiedź | Skutek w zadaniach |
 |---|---|---|
-| D1 — sale i ich powiązanie z pracowniami | ZAD-04, ZAD-05 | kształt `topology.json` |
-| D2 — diagram czy też zdjęcia szaf/patch paneli | ZAD-05 (załączniki) | zakres widoku topologii |
-| D3 — czym jest `/pepsi` (lokalnie / UNC / mount) | ZAD-07, ZAD-08 | konfiguracja i uprawnienia FS |
-| D4 — kto widzi listing plików | ZAD-06, ZAD-07 | `files.read` w `RoleCatalog` |
-| D5 — profil domenowy czy konto lokalne na stacji | ZAD-09 | `accountScope` |
-| D6 — czy UI wskazuje pliki ucznia | ZAD-08, ZAD-09 | RODO, brak mapowania |
-| D7 — czy nauczyciel widzi topologię | ZAD-04, ZAD-05 | `topology.read` + `classroomScope` |
-| D8 — weryfikacja `SvgIcons` i zgoda na zależność NuGet | ZAD-02 | ADR-0009, ADR-0001 |
-| D9 — bundling fontu Inter / Plus Jakarta Sans | ZAD-01 | licencja i rozmiar artefaktu |
-| D10 — deny overrides dla grup uczniowskich | ZAD-06 | pierwszeństwo odmowy |
+| D1 — sale | C: listę sal robi admin | ZAD-04: `topology.json` od admina, bez zgadywania |
+| D2 — „zdj” | gotowe rysunki urządzeń + diagram ułożenia + diagram połączeń | ZAD-05: grafiki + dwa diagramy |
+| D3 — `/pepsi` | dysk sieciowy → UNC | ZAD-07: `Root` jako UNC, prawa konta usługi |
+| D4 — kto widzi pliki | wszystkie role aplikacji; zapis wydzielony poza aplikację | ZAD-06/07/08: `files.read` dla Administrator/Teacher/ReadOnly, v1 bez zapisu |
+| D5 — konto AD | A: domena + profil lokalny na stacji | ZAD-09: `accountScope` bez zgadywania |
+| D6 — pliki ucznia | uczeń nie ma dostępu do aplikacji | ZAD-08/09: brak danych o plikach ucznia w UI |
+| D7 — topologia | C: każdy zalogowany | ZAD-04/05: `topology.read` dla wszystkich ról, bez filtra `classroomScope` |
+| D8 — ikony | B: dodaj `SvgIcons 0.1.10` | ZAD-02: paczka + zielone CI, fallback `Path` przy porażce |
+| D9 — font | A: `Segoe UI` | ZAD-01: krój systemowy, bez bundlingu |
+| D10 — uczniowie | A: deny overrides | ZAD-06: odmowa ma pierwszeństwo nad rolą |
 
-Dopóki decyzja nie jest podjęta, zadanie realizujemy w wariancie „propozycja domyślna” z §4
-notatek i zostawiamy jawny punkt do zmiany (konfiguracja / jeden adapter), bez zgadywania w kodzie.
+Trzy drobne doprecyzowania z §4.1 notatek (źródło grafik, dokładny UNC + konto usługi, lista sal)
+**nie blokują** rozpoczęcia prac — zostawiamy po jednym, jawnym punkcie konfiguracji.
+
+Zgłoszenia GitHub #5–#15 zostały zamknięte przez zamawiającego 2026-11-26; backlog żyje w
+`docs/zadania/` i nie tworzymy nowych zgłoszeń bez wyraźnej prośby.
 
 ## Definicja ukończenia całego backlogu
 

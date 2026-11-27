@@ -140,7 +140,7 @@ Zasady M0–M4 (ADR-0003, 0007, 0008) obowiązują; zmiany protokołu są rozsze
   `topology.json`, a komputer bez wpisu jest oznaczony „brak danych”, nie znika.
 - **Given** M8, **when** konto z grupy uczniowskiej spróbuje połączyć się lub wyśle dowolne
   żądanie, **then** dostaje odmowę z audytem i żadnych danych; `/pepsi` jest dostępne wyłącznie
-  do odczytu metadanych i wyłącznie dla roli z `files.read`.
+  do odczytu metadanych dla wszystkich ról aplikacji (`files.read`), a zapis pozostaje poza aplikacją.
 - **Given** dowolny etap, **when** uruchomię CI na `windows-latest`, **then** `build`, `test`
   i kontrola „zero glow” są zielone, a dokumentacja protokołu/modelu/uprawnień jest zgodna z kodem.
 
@@ -148,9 +148,10 @@ Zasady M0–M4 (ADR-0003, 0007, 0008) obowiązują; zmiany protokołu są rozsze
 następnie ZAD-05/09, ZAD-07, ZAD-08, a ZAD-10 domyka dokumentację na końcu każdego etapu.
 M5 (wdrożenie, DPIA) pozostaje warunkiem wypuszczenia któregokolwiek z nowych etapów na produkcję.
 
-**Decyzje blokujące:** D1–D10 w [`notatki-zamawiajacego-2026-11-26.md`](notatki-zamawiajacego-2026-11-26.md) §4
-(m.in. czym jest `/pepsi`, czy „zdj” oznacza też zdjęcia, kto widzi pliki i topologię, weryfikacja
-`SvgIcons 0.1.10` przed dodaniem paczki).
+**Decyzje (podjęte 2026-11-26):** D1–D10 w [`notatki-zamawiajacego-2026-11-26.md`](notatki-zamawiajacego-2026-11-26.md) §4:
+`/pepsi` = dysk sieciowy (UNC), gotowe rysunki urządzeń + diagramy ułożenia i połączeń, listing plików
+i topologia dla wszystkich ról aplikacji, `SvgIcons 0.1.10` dodawany po zielonym CI, `Segoe UI`,
+uczniowie zawsze blokowani. Trzy drobne doprecyzowania (§4.1) nie blokują startu prac.
 
 ## Backlog decyzji (z README, sekcja „Co doprecyzować”)
 
@@ -164,7 +165,7 @@ M5 (wdrożenie, DPIA) pozostaje warunkiem wypuszczenia któregokolwiek z nowych 
 | Sposób sygnalizowania reconnectu | M0 (zrobione) | — | zrobione |
 | Ograniczenie retencji i widoczności historii | M2/M3 | DPO | mechanizmy gotowe; klauzula/DPIA przed wdrożeniem |
 | Skala: liczba stacji i klientów | M1 | administrator IT | zrobione |
-| D1–D10: sale/topologia, `/pepsi`, uczniowie, konta AD, ikony, font, deny overrides | M6–M8 | administrator IT, dyrekcja, DPO, deweloper | **do podjęcia** — [`notatki-zamawiajacego-2026-11-26.md`](notatki-zamawiajacego-2026-11-26.md) §4, [`zadania/README.md`](zadania/README.md) |
+| D1–D10: sale/topologia, `/pepsi`, uczniowie, konta AD, ikony, font, deny overrides | M6–M8 | administrator IT, dyrekcja, DPO, deweloper | **podjęte 2026-11-26** — [`notatki-zamawiajacego-2026-11-26.md`](notatki-zamawiajacego-2026-11-26.md) §4, [`zadania/README.md`](zadania/README.md) |
 
 ## Weryfikacja M2/M3/M4
 

@@ -1,6 +1,6 @@
 # ZAD-07 — Hosting plików `/pepsi`: backend tylko do odczytu
 
-**Etap:** M8 · **Priorytet:** P1 · **Zależy od:** ZAD-06, decyzje **D3**, **D4**
+**Etap:** M8 · **Priorytet:** P1 · **Zależy od:** ZAD-06 (**D3** = UNC, **D4** = wszystkie role — podjęte)
 **Blokuje:** ZAD-08
 **Etykiety:** `enhancement`, `help wanted`, `documentation` · **Szacunek:** 3 dni
 **Źródło:** [`../notatki-zamawiajacego-2026-11-26.md`](../notatki-zamawiajacego-2026-11-26.md) F4, §3.5
@@ -8,17 +8,19 @@
 ## Kontekst
 
 „mamy też hosing plików w /pepsi są tam pliki są jakieś tam foldery”. Aplikacja ma umieć pokazać
-drzewo folderów i listę plików. Nie wiadomo jeszcze, czy `/pepsi` to katalog lokalny serwera,
-udział UNC, czy mount (**D3**), ani kto może go widzieć (**D4**). Dlatego ścieżka jest
-**konfiguracją**, a adapter jest jednym miejscem, które zna system plików. W v1 wyłącznie odczyt
-**metadanych** — bez pobierania treści, bez zapisu, bez dostępu dla uczniów (ZAD-06).
+drzewo folderów i listę plików. **D3 (podjęte):** to **dysk sieciowy na serwerze**, więc `Root`
+jest ścieżką **UNC**, a nie literą mapowanego dysku (mapowanie jest per użytkownik i nie jest
+widoczne dla usługi Windows). **D4 (podjęte):** listing widzą wszystkie role aplikacji, a wydzielone
+prawa zapisu na udziale pozostają sprawą NTFS **poza aplikacją**. Ścieżka jest **konfiguracją**, adapter
+jedynym miejscem znającym FS; v1 to wyłącznie odczyt **metadanych** — bez treści, bez zapisu,
+bez dostępu dla uczniów (ZAD-06).
 
 ## Zakres
 
 1. Konfiguracja `ZseAdmin:FileHosting`:
    ```jsonc
    "FileHosting": {
-     "Root": "",              // np. "\\\\serwer\\pepsi" albo "D:\\pepsi" — D3; pusty = źródło wyłączone
+     "Root": "",              // UNC, np. \\serwer\pepsi (D3); NIE litera mapowanego dysku
      "Enabled": false,
      "MaxEntries": 500,
      "MaxDepth": 8,
@@ -26,6 +28,8 @@ udział UNC, czy mount (**D3**), ani kto może go widzieć (**D4**). Dlatego śc
    }
    ```
    Wartość domyślna wyłączona; produkcja nie startuje z włączonym źródłem bez ustawionego `Root`.
+   **D3:** konto usługi musi mieć prawa odczytu do UNC; **D4:** `files.read` dla wszystkich ról,
+   a zapis na udziale jest poza aplikacją (v1 go nie implementuje).
 2. `src/ZseAdmin.Server/Infrastructure/Files/` (nowy):
    - `IFileHostingSource` (port): `ListAsync(relativePath, take, ct)` → wpisy + `DataFreshnessDto`,
    - `FileSystemHostingSource` (adapter): `Path.GetFullPath` + sprawdzenie, że wynik zaczyna się od
@@ -37,8 +41,9 @@ udział UNC, czy mount (**D3**), ani kto może go widzieć (**D4**). Dlatego śc
      `sizeBytes?`, `modifiedAtUtc?`, `extension?` — **bez zawartości i bez pełnej ścieżki serwera**.
 3. Protokół (v1, kompatybilnie wstecz): `MessageTypes.FilesList = "files.list"`,
    `FilesListRequest` (`path?`, `take`), `FilesListResponse` (`items`, `totalMatched`, `freshness`).
-   `Capability.FilesRead` w `RoleCatalog` — domyślnie tylko Administrator (**D4**); `MessageRouter`
-   + `CapabilityGuard`, `forbidden` z audytem `denied` dla pozostałych ról (ZAD-06).
+   `Capability.FilesRead` w `RoleCatalog` — **D4:** Administrator, Teacher i ReadOnly;
+   `MessageRouter` + `CapabilityGuard`, `forbidden` z audytem `denied` dla uczniów i ról bez
+   uprawnienia (ZAD-06).
 4. Semantyka braków z [`../model-danych.md`](../model-danych.md) §4: `Root` niedostępny →
    `error: upstreamUnavailable` z nazwą źródła (nie pusta lista); przekroczenie `MaxEntries` →
    `completeness = partial` + nota z limitem; źródło wyłączone → jawny `unavailable` z powodem.
@@ -55,7 +60,7 @@ udział UNC, czy mount (**D3**), ani kto może go widzieć (**D4**). Dlatego śc
 
 ## Kryteria akceptacji (Given / When / Then)
 
-1. **Given** `Root` wskazuje na katalog z 3 folderami i 12 plikami, **when** Administrator wyśle
+1. **Given** `Root` (UNC) wskazuje na udział z 3 folderami i 12 plikami, **when** dowolna rola aplikacji wyśle
    `files.list` bez `path`, **then** dostaje wyłącznie wpisy bezpośrednie z `kind`, rozmiarem,
    datą, ścieżką **względną** oraz `freshness` z `source = "/pepsi"` (bez ścieżki fizycznej serwera).
 2. **Given** `path = "../../Windows/System32"`, `path = "C:\\Windows"` albo `path` z dowiązaniem
@@ -64,8 +69,9 @@ udział UNC, czy mount (**D3**), ani kto może go widzieć (**D4**). Dlatego śc
 3. **Given** `Root` nie istnieje albo konto usługi nie ma do niego dostępu, **when** wyślę
    `files.list`, **then** dostaję `error: upstreamUnavailable` z nazwą źródła i powodem — nie pustą
    listę ani `notFound`.
-4. **Given** Nauczyciel, ReadOnly albo konto z grupy uczniowskiej (**D4**), **when** wyśle
-   `files.list`, **then** `forbidden` + audyt `denied`, bez jakichkolwiek nazw plików.
+4. **Given** konto z grupy uczniowskiej albo rola bez `files.read`, **when** wyśle `files.list`,
+   **then** `forbidden` + audyt `denied`, bez jakichkolwiek nazw plików; **given** Nauczyciel lub
+   ReadOnly (**D4**), **then** dostaje listing (v1 tylko odczyt metadanych).
 5. **Given** katalog z 10 000 wpisów i `MaxEntries = 500`, **when** wyślę `files.list`, **then**
    odpowiedź ma ≤ 500 wpisów, `completeness = partial` i notę „Pokazano 500 z …” — bez cichego
    ucięcia.
@@ -79,23 +85,28 @@ udział UNC, czy mount (**D3**), ani kto może go widzieć (**D4**). Dlatego śc
 - `tests/ZseAdmin.Tests/FileHostingSourceTests.cs` (nowy, tymczasowy katalog w teście): listing,
   path traversal (kilka wariantów), reparse point, limit wpisów, głębokość, brak `Root`, brak
   uprawnień (jeśli możliwe do symulacji), anulowanie.
-- `tests/ZseAdmin.Tests/MessageRouterTests.cs` / `SecurityM3Tests.cs`: `files.read` tylko u
-  Administratora; `forbidden` z audytem dla Teacher/ReadOnly/odrzuconego ucznia.
+- `tests/ZseAdmin.Tests/MessageRouterTests.cs` / `SecurityM3Tests.cs`: `files.read` u
+  Administratora, Teacher i ReadOnly (D4); `forbidden` z audytem dla odrzuconego ucznia i roli
+  bez uprawnienia.
 - `tests/ZseAdmin.Tests/ProtocolSerializationTests.cs`: `FileEntryDto` nie zawiera pól treści ani
   ścieżki bezwzględnej.
 
 ## Definicja ukończenia
 
 - [ ] `Root` nigdy nie jest hardkodowany; `FileSystemHostingSource` to jedyny kod dotykający FS.
-- [ ] `appsettings.Production.json` ma wyłączone źródło do czasu decyzji **D3**; brak sekretów.
+- [ ] `Root` to UNC (D3), nie litera dysku; `appsettings.Production.json` ma źródło wyłączone
+  do czasu podania ścieżki i praw konta usługi; brak sekretów.
 - [ ] Dokumentacja protokołu, modelu i uprawnień zaktualizowana; `protocolVersion = 1`.
-- [ ] CI zielone; decyzje **D3**, **D4** zapisane; status w [`README.md`](README.md).
+- [ ] CI zielone; decyzje **D3**, **D4** zapisane w notatkach §4; status w [`README.md`](README.md).
 
 ## Ryzyka i decyzje
 
-- **D3** (UNC vs lokalny katalog) wpływa na tożsamość konta usługi i na to, czy `Path.GetFullPath`
-  wystarczy; przy UNC dodać jawne sprawdzenie prefiksu udziału.
-- **D4** (kto widzi listing) wpływa na `RoleCatalog`; domyślnie fail-close: tylko Administrator.
+- **D3 = dysk sieciowy / UNC (podjęte):** konto usługi musi mieć odczyt do udziału, a `Root`
+  nie może być literą mapowanego dysku; przy UNC dodać jawne sprawdzenie prefiksu udziału
+  i test, że `Path.GetFullPath` nie wychodzi poza `Root`.
+- **D4 = wszystkie role aplikacji (podjęte):** `files.read` dla Administrator/Teacher/ReadOnly;
+  uczniowie są odrzucani wcześniej (ZAD-06). Zapis na udziale pozostaje poza aplikacją — v1 nie
+  implementuje żadnej operacji zapisu.
 - Nazwy plików mogą zawierać dane osobowe uczniów (RODO, DPIA w M5): nie logować pełnych list,
   nie zwracać treści, nie indeksować, rozważyć audyt samego faktu odczytu listy.
 - Reparse points / junction pod UNC potrafią „wyjść” poza `Root` mimo poprawnego prefiksu —

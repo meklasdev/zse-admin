@@ -21,6 +21,12 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="8.0.0" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(ZseAdminClientBundle)' == 'true'">
+    <!-- Klient demo wymusza własną konfigurację mocków; nie kopiuj ustawień serwera
+         obok appsettings.json klienta ani do pakietu jednego EXE. -->
+    <Content Update="appsettings.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
   <ItemGroup>
     <!-- Definicja pracowni jest konfiguracją, nie kodem: plik trafia do katalogu publikacji. -->
     <None Update="classrooms.json">

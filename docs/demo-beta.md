@@ -18,7 +18,7 @@ Do obejrzenia interfejsu aplikacji z repozytorium użyj publikacji beta dla Wind
 
 Wynik: `artifacts/beta-exe/ZseAdmin.Client.exe`. Uruchom go w Windows. To istniejący klient WPF, a serwer WebSocket z mockami uruchamia się **wewnątrz tego samego procesu**, na losowym porcie `127.0.0.1`. Po zamknięciu okna serwer jest zatrzymywany. W tej konfiguracji wymuszone są dane przykładowe i uwierzytelnianie lokalne; aplikacja nie łączy się z AD. Publikacja jest samodzielna (`win-x64`, .NET dołączony), ale plik `appsettings.json` pozostaje obok EXE jako ustawienie uruchomienia.
 
-Nie uruchamiaj tej komendy na Linux/macOS — wymaga Windows SDK i toolchainu WPF. Bieżące środowisko robocze nie ma `dotnet`, więc gotowego pliku EXE nie mogę tu zbudować; skrypt jest przygotowany do uruchomienia na Windows lub w CI.
+Nie uruchamiaj tej komendy na Linux/macOS — wymaga Windows SDK i toolchainu WPF. Wydania beta można publikować jako GitHub Release tagiem w formacie `v*-beta*`; workflow `.github/workflows/release-beta.yml` buduje EXE na Windows i dołącza ZIP z EXE oraz `appsettings.json`.
 
 ### Z serwerem aplikacji
 

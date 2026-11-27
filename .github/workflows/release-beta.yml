@@ -1,0 +1,38 @@
+name: Publikacja beta Windows
+
+on:
+  push:
+    tags:
+      - "v*-beta*"
+
+permissions:
+  contents: write
+
+jobs:
+  publish-beta:
+    name: EXE beta Windows x64
+    runs-on: windows-latest
+
+    steps:
+      - name: Pobranie kodu z tagu wydania
+        uses: actions/checkout@v4
+
+      - name: .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Publikacja samodzielnego EXE z lokalnym API
+        shell: pwsh
+        run: '& ./scripts/publish-beta-exe.ps1 -Runtime win-x64 -Output artifacts/beta-exe'
+
+      - name: Spakowanie EXE i konfiguracji
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "artifacts/beta-exe/*" -DestinationPath "artifacts/ZSE-Admin-Beta-win-x64.zip" -Force
+
+      - name: Dołączenie paczki do GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$env:GITHUB_REF_NAME" "artifacts/ZSE-Admin-Beta-win-x64.zip" --clobber

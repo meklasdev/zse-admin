@@ -29,7 +29,7 @@ if ($SingleFile -and -not $Runtime) {
     throw "-SingleFile wymaga podania -Runtime (np. win-x64)."
 }
 
-$publishArgs = @("publish", "src/ZseAdmin.Client", "-c", $Configuration, "-o", $Output)
+$publishArgs = @("publish", "src/ZseAdmin.Client", "-c", $Configuration, "-o", $Output, "-p:ZseAdminClientBundle=true")
 if ($NoBuild) { $publishArgs += "--no-build" }
 if ($Runtime) { $publishArgs += @("-r", $Runtime, "--self-contained", "false") }
 if ($SingleFile) { $publishArgs += "-p:PublishSingleFile=true" }
@@ -47,8 +47,8 @@ if ($Configuration -ieq "Release") {
 
     Copy-Item -Path $production -Destination $destination -Force
     $settings = Get-Content $production -Raw | ConvertFrom-Json
-    if ($settings.UseWindowsAuth -ne $true -or $settings.Token -or $settings.ServerUrl -notlike "wss://*") {
-        throw "appsettings.Production.json musi mieć wss://, UseWindowsAuth = true i pusty Token."
+    if ($settings.UseWindowsAuth -ne $true -or $settings.Token -or $settings.ServerUrl -notlike "wss://*" -or $settings.UseLocalDemoServer -eq $true) {
+        throw "appsettings.Production.json musi mieć wss://, UseWindowsAuth = true, pusty Token i wyłączone lokalne demo."
     }
 
     Write-Host "Artefakt używa wss + Windows Auth i nie zawiera tokenu." -ForegroundColor Green

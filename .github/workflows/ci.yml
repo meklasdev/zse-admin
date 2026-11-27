@@ -84,6 +84,11 @@ jobs:
           if ($client.ServerUrl -notlike 'wss://*') { Write-Error "Klient produkcyjny musi używać wss://."; exit 1 }
           if ($client.UseWindowsAuth -ne $true) { Write-Error "Klient produkcyjny musi używać Windows Auth."; exit 1 }
           if ($client.Token) { Write-Error "Artefakt klienta nie może zawierać tokenu."; exit 1 }
+          if ($client.UseLocalDemoServer -ne $false) { Write-Error "Klient produkcyjny nie może uruchamiać lokalnego API demo."; exit 1 }
+
+      - name: Publikacja demo beta jako samodzielny EXE (lokalne API w procesie WPF)
+        shell: pwsh
+        run: '& ./scripts/publish-beta-exe.ps1 -Runtime win-x64 -Output artifacts/beta-exe'
 
       - name: Artefakty
         uses: actions/upload-artifact@v4
@@ -92,4 +97,5 @@ jobs:
           path: |
             artifacts/server
             artifacts/client
+            artifacts/beta-exe
           if-no-files-found: error

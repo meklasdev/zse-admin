@@ -2,13 +2,16 @@
 
 Repozytorium zawiera **ocenę specyfikacji** (`docs/ocena.md`) oraz **działającą aplikację**:
 serwer WebSocket na .NET 8 (dane przykładowe albo prawdziwe Active Directory przez LDAP)
-i klient WPF. Zrealizowano etapy **M0–M4**: odczyt AD, historia logowań z retencją,
+i klient WPF. Demo w przeglądarce jest osobnym prototypem; do obejrzenia właściwego interfejsu
+WPF przygotowano publikację EXE z lokalnym API mock uruchamianym w tym samym procesie. Zrealizowano etapy **M0–M4**: odczyt AD, historia logowań z retencją,
 uwierzytelnianie Windows/grupami AD z `wss`, zakres danych nauczyciela oraz akcje
 na stacjach i zapis do AD z potwierdzeniem i audytem. Specyfikacja produktu (poniżej)
 pozostaje źródłem wymagań.
 
 | Chcesz… | Zajrzyj do |
 |---|---|
+| obejrzeć klienta WPF jako EXE z lokalnym API demo albo prototyp przeglądarkowy | [`docs/demo-beta.md`](docs/demo-beta.md) |
+| spisać uwagi do wyglądu i działania interfejsu beta | [`docs/feedback-ui-beta.md`](docs/feedback-ui-beta.md) |
 | poznać ocenę wymagań, ryzyka i luki | [`docs/ocena.md`](docs/ocena.md) |
 | zrozumieć komponenty i wdrożenie | [`docs/architektura.md`](docs/architektura.md) |
 | zobaczyć kontrakt klient–serwer | [`docs/api-websocket.md`](docs/api-websocket.md) |

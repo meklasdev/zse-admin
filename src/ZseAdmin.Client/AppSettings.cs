@@ -8,6 +8,9 @@ public sealed class AppSettings
 {
     public string ServerUrl { get; set; } = "ws://localhost:5080/ws";
 
+    /// <summary>Uruchom lokalne API z fikcyjnymi danymi wewnątrz tego procesu WPF.</summary>
+    public bool UseLocalDemoServer { get; set; }
+
     /// <summary>Token wyłącznie do developmentu. W produkcji ustaw <c>UseWindowsAuth = true</c>.</summary>
     public string? Token { get; set; } = "dev-admin-token";
 

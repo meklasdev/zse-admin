@@ -396,6 +396,7 @@
         <Setter Property="Background" Value="{StaticResource Brush.Transparent}" />
         <Setter Property="BorderThickness" Value="{StaticResource BorderNone}" />
         <Setter Property="Padding" Value="{StaticResource BorderNone}" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
         <Setter Property="SnapsToDevicePixels" Value="True" />
     </Style>
 
@@ -404,8 +405,11 @@
         <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
         <Setter Property="FontFamily" Value="{StaticResource Font.Default}" />
         <Setter Property="FontSize" Value="{StaticResource Font.Size.Body}" />
-        <Setter Property="Padding" Value="0,8,0,6" />
-        <Setter Property="Margin" Value="0,0,16,0" />
+        <Setter Property="Padding" Value="8,7,8,6" />
+        <Setter Property="Margin" Value="0,0,8,0" />
+        <Setter Property="MinWidth" Value="84" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="TabItem">

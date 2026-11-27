@@ -21,8 +21,11 @@ dotnet run --project src/ZseAdmin.Server
 
 Serwer nasłuchuje na `http://0.0.0.0:5080`:
 
+- `http://localhost:5080/` lub `/demo.html` — interaktywny podgląd UI beta z całkowicie fikcyjnymi danymi i symulowanymi akcjami; nie łączy się z AD ani backendem,
 - `http://localhost:5080/healthz` — status, liczba sesji, tryb danych, źródło i wiek bufora logowań, tryb uwierzytelniania,
 - `http://localhost:5080/debug.html` — konsola protokołu (M0–M4: `classrooms.list`, `computers.list`, `logins.query`, `users.get`, `audit.query`, `action.prepare`, `action.execute`, `ping`).
+
+Szczegóły i tryb uruchomienia samego frontendu: [`demo-beta.md`](demo-beta.md).
 
 W konsoli użyj tokenu `dev-admin-token` (Administrator) lub `dev-teacher-token` (Nauczyciel) z `appsettings.json`.
 Kolektor logowań startuje od razu i co 60 s dopisuje nowe zdarzenia (`event.logins.new`); w danych przykładowych

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#f7f8fa" />
+  <title>ZSE-Admin — demo beta</title>
+  <link rel="stylesheet" href="demo.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="demo.html" aria-label="ZSE-Admin, strona główna">
+        <span class="brand-mark">Z</span><span><strong>ZSE-Admin</strong><small>Centrum zarządzania</small></span>
+      </a>
+      <div class="sidebar-label">PRZEGLĄD</div>
+      <nav class="navigation" aria-label="Nawigacja główna">
+        <button class="nav-item active" data-view="overview"><span class="nav-icon">◫</span> Pulpit</button>
+        <button class="nav-item" data-view="computers"><span class="nav-icon">▣</span> Komputery <span class="nav-count">17</span></button>
+        <button class="nav-item" data-view="logins"><span class="nav-icon">↗</span> Historia logowań</button>
+        <button class="nav-item" data-view="users"><span class="nav-icon">♙</span> Konta użytkowników</button>
+        <button class="nav-item" data-view="audit"><span class="nav-icon">☷</span> Akcje i audyt</button>
+      </nav>
+      <div class="sidebar-label room-label">PRACOWNIE</div>
+      <div class="room-list" id="room-list"></div>
+      <div class="sidebar-bottom">
+        <div class="demo-note"><span class="demo-dot"></span><span><strong>Tryb demonstracyjny</strong><small>Dane fikcyjne · operacje symulowane</small></span></div>
+        <a class="debug-link" href="debug.html">Konsola techniczna <span>↗</span></a>
+        <div class="profile"><div class="avatar">AK</div><div><strong>Anna Kowalska</strong><small>Administrator</small></div><span class="more">···</span></div>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <div class="breadcrumbs"><span>ZSE-Admin</span><span class="slash">/</span><strong id="breadcrumb">Pulpit</strong></div>
+        <div class="top-actions"><div class="connection"><span class="connection-dot"></span> Serwer demonstracyjny</div><span class="top-divider"></span><button class="icon-button" id="help-button" aria-label="Informacje o demo">?</button><div class="top-avatar">AK</div></div>
+      </header>
+
+      <div class="content-wrap">
+        <div class="page-heading">
+          <div><div class="eyebrow"><span id="weekday"></span>, <span id="today-date"></span></div><h1 id="page-title">Dzień dobry, Anno</h1><p id="page-description">Szybki przegląd stanu szkolnych pracowni.</p></div>
+          <div class="heading-actions"><span class="freshness"><span class="freshness-dot"></span> Dane przykładowe · odświeżono przed chwilą</span><button class="button button-secondary" id="refresh-button"><span class="refresh-icon">↻</span> Odśwież</button></div>
+        </div>
+
+        <section class="stats-grid" aria-label="Podsumowanie">
+          <article class="stat-card"><div class="stat-top"><span>Komputery</span><span class="stat-icon blue">▣</span></div><div class="stat-value">17<span class="stat-context"> / 17</span></div><div class="stat-foot"><span class="mini-bar"><i style="width:100%"></i></span><span>Wszystkie pracownie</span></div></article>
+          <article class="stat-card"><div class="stat-top"><span>Dostępne</span><span class="stat-icon green">✓</span></div><div class="stat-value">12</div><div class="stat-foot"><span class="status-text green-text">● 70,6%</span><span>ostatni pomiar &lt; 2 min</span></div></article>
+          <article class="stat-card"><div class="stat-top"><span>Wymaga uwagi</span><span class="stat-icon amber">!</span></div><div class="stat-value">5</div><div class="stat-foot"><span class="status-text amber-text">3 offline · 2 brak danych</span></div></article>
+          <article class="stat-card"><div class="stat-top"><span>Logowania dzisiaj</span><span class="stat-icon violet">↗</span></div><div class="stat-value">46</div><div class="stat-foot"><span class="trend">↗ 12%</span><span>vs. poprzedni dzień</span></div></article>
+        </section>
+
+        <section class="room-section">
+          <div class="section-heading"><div><h2>Pracownie</h2><p>Stan stanowisk i ostatnia aktywność</p></div><button class="text-button" data-go="computers">Wszystkie komputery <span>→</span></button></div>
+          <div class="room-cards" id="room-cards"></div>
+        </section>
+
+        <section class="data-panel">
+          <div class="panel-heading"><div><h2 id="table-title">Komputery — ostatni stan</h2><p id="table-description">Ostatnio sprawdzone urządzenia w całej szkole</p></div><button class="button button-secondary button-small" id="export-button">↓ <span>Eksportuj CSV</span></button></div>
+          <div class="table-toolbar"><label class="search-box"><span>⌕</span><input id="search-input" type="search" placeholder="Szukaj komputera, użytkownika…" autocomplete="off" /></label><div class="filter-group"><select id="status-filter" aria-label="Filtruj według stanu"><option value="all">Każdy stan</option><option value="Online">Online</option><option value="Offline">Offline</option><option value="Brak danych">Brak danych</option></select><button class="filter-button" id="room-filter-button">☷ <span id="room-filter-label">Wszystkie pracownie</span>⌄</button></div></div>
+          <div class="table-scroll"><table><thead id="table-head"></thead><tbody id="table-body"></tbody></table></div>
+          <div class="table-footer"><span id="result-count">Pokazuje 5 z 17 komputerów</span><div class="pagination"><button disabled aria-label="Poprzednia strona">‹</button><button class="page-current">1</button><button id="next-page" aria-label="Następna strona">›</button></div></div>
+        </section>
+        <footer class="page-footer"><span>© 2026 ZSE-Admin · Wersja beta demonstracyjna</span><span>Wszystkie osoby i dane w tym widoku są fikcyjne.</span></footer>
+      </div>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <dialog id="detail-dialog" class="dialog"><form method="dialog"><button class="dialog-close" aria-label="Zamknij">×</button></form><div id="dialog-content"></div></dialog>
+  <dialog id="action-dialog" class="dialog action-dialog"><form method="dialog"><button class="dialog-close" aria-label="Zamknij">×</button></form><div class="modal-icon">⚙</div><div class="eyebrow">TRYB DEMONSTRACYJNY</div><h2 id="action-title">Symulacja akcji</h2><p id="action-description"></p><div class="modal-warning"><strong>To tylko podgląd.</strong> Żadna operacja nie zostanie wykonana na komputerze ani w Active Directory.</div><div class="modal-actions"><button class="button button-secondary" id="cancel-action">Anuluj</button><button class="button button-primary" id="confirm-action">Zobacz symulację</button></div></dialog>
+  <script src="demo.js"></script>
+</body>
+</html>

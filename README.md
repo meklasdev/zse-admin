@@ -9,6 +9,7 @@ pozostaje źródłem wymagań.
 
 | Chcesz… | Zajrzyj do |
 |---|---|
+| obejrzeć interaktywny podgląd beta z fikcyjnymi danymi | [`docs/demo-beta.md`](docs/demo-beta.md) lub uruchom serwer i otwórz `/` |
 | poznać ocenę wymagań, ryzyka i luki | [`docs/ocena.md`](docs/ocena.md) |
 | zrozumieć komponenty i wdrożenie | [`docs/architektura.md`](docs/architektura.md) |
 | zobaczyć kontrakt klient–serwer | [`docs/api-websocket.md`](docs/api-websocket.md) |

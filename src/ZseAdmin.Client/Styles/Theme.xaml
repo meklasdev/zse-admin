@@ -62,6 +62,7 @@
     <Thickness x:Key="Padding.Field">10,8</Thickness>
     <Thickness x:Key="Padding.Button">14,6</Thickness>
     <Thickness x:Key="Padding.Pill">8,2</Thickness>
+    <Thickness x:Key="Padding.Dialog">24</Thickness>
 
     <sys:Double x:Key="Size.FormLabel">260</sys:Double>
     <sys:Double x:Key="Size.RowMinHeight">40</sys:Double>

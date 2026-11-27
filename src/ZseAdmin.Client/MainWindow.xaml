@@ -11,7 +11,9 @@
         FontFamily="{StaticResource Font.Default}"
         Foreground="{StaticResource Brush.Text}">
 
-    <DockPanel>
+    <Grid>
+
+        <DockPanel Visibility="{Binding HasAccess, Converter={StaticResource BoolToVisibility}}">
 
         <!-- Pasek nagłówka: tożsamość, świeżość danych, stan połączenia.
              Jasna powierzchnia + 1px linia podziału (bez ciemnego paska, bez poświaty). -->
@@ -257,5 +259,27 @@
             </Border>
 
         </Grid>
-    </DockPanel>
+        </DockPanel>
+
+        <!-- ZAD-06/D10 — brak dostępu to jawny ekran, nie puste tabele ani przyciski akcji. -->
+        <Border Style="{StaticResource CardSurface}"
+                Padding="{StaticResource Padding.Dialog}"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                MaxWidth="560"
+                Visibility="{Binding IsAccessDenied, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel>
+                <TextBlock Text="{Binding AccessDeniedTitle}"
+                           Style="{StaticResource Text.Title}"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="{Binding AccessDeniedMessage}"
+                           Style="{StaticResource Text.Body}"
+                           Margin="0,12,0,0"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="{Binding AccessDeniedAuditNote}"
+                           Style="{StaticResource Text.Meta}"
+                           Margin="0,8,0,0" />
+            </StackPanel>
+        </Border>
+    </Grid>
 </Window>

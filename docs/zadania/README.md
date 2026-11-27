@@ -1,6 +1,6 @@
 # Backlog zadań dla deweloperów (2026-11-26)
 
-**Status:** implementacja rozpoczęta. ZAD-01 zrobione (PR #18); pozostałe zadania w kolejce —
+**Status:** implementacja rozpoczęta. ZAD-01 (PR #18) i ZAD-06 (PR #19) zrobione; pozostałe w kolejce —
 ten katalog zawiera specyfikacje do implementacji, nie implementację.
 **Materiał wejściowy:** [`../notatki-zamawiajacego-2026-11-26.md`](../notatki-zamawiajacego-2026-11-26.md)
 **Obowiązujący styl:** [`../ui-design-system.md`](../ui-design-system.md) (spójne UI, zero glow)
@@ -29,7 +29,7 @@ Bez kryteriów nie zamykamy zadania. Zmiany w protokole są kompatybilne wstecz 
 | ZAD-03 | Formularze dwukolumnowe, liczniki znaków, przerywana strefa upuszczania | M6 | P1 | ZAD-01, ZAD-02 | [`03-formularze-dwukolumnowe.md`](03-formularze-dwukolumnowe.md) | do zrobienia |
 | ZAD-04 | Model topologii: sale wg listy admina → węzły/łącza, `topology.json`, DTO | M7 | P1 | D1: lista od admina; D7: wszystkie role | [`04-model-topologii.md`](04-model-topologii.md) | do zrobienia |
 | ZAD-05 | Widok topologii: grafiki urządzeń + układ sali + diagram połączeń | M7 | P1 | ZAD-01, ZAD-02, ZAD-04 (D2, D7) | [`05-widok-topologii.md`](05-widok-topologii.md) | do zrobienia |
-| ZAD-06 | Uczniowie bez dostępu: deny-by-default na serwerze + audyt odmów | M8 | P0 | — (D10 = A) | [`06-dostep-uczniow.md`](06-dostep-uczniow.md) | do zrobienia |
+| ZAD-06 | Uczniowie bez dostępu: deny-by-default na serwerze + audyt odmów | M8 | P0 | — (D10 = A) | [`06-dostep-uczniow.md`](06-dostep-uczniow.md) | **zrobione** (PR #19) |
 | ZAD-07 | `/pepsi` — backend tylko do odczytu, `Root` jako UNC (`files.list`) | M8 | P1 | ZAD-06 (D3: UNC, D4: wszystkie role) | [`07-pliki-pepsi-backend.md`](07-pliki-pepsi-backend.md) | do zrobienia |
 | ZAD-08 | `/pepsi` — przeglądarka plików w UI i strefa upuszczania | M8 | P2 | ZAD-01, ZAD-03, ZAD-07 (D6) | [`08-pliki-pepsi-ui.md`](08-pliki-pepsi-ui.md) | do zrobienia |
 | ZAD-09 | Konto AD vs profil/konto lokalne na stacji w historii logowań | M8 | P1 | — (D5 = A, D6) | [`09-konto-ad-vs-lokalne.md`](09-konto-ad-vs-lokalne.md) | do zrobienia |

@@ -178,6 +178,61 @@ public sealed class MessageRouterTests
         Assert.Contains("retencj", payload.Freshness.Note, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void Kazdy_typ_zadania_z_protokolu_ma_przypisane_uprawnienie()
+    {
+        // Fail-close: nowy typ w MessageTypes bez wpisu w MessageCapabilities nie może
+        // po cichu działać jako „dozwolony”.
+        Assert.Empty(MessageCapabilities.UnmappedProtocolRequests);
+        Assert.All(
+            MessageTypes.ClientRequestTypes,
+            type => Assert.True(MessageCapabilities.TryGetCapability(type, out _), type));
+    }
+
+    public static TheoryData<string, object?> ZadaniaKlientaBezPing() => new()
+    {
+        { MessageTypes.ClassroomsList, null },
+        { MessageTypes.ComputersList, null },
+        { MessageTypes.LoginsQuery, null },
+        { MessageTypes.UsersGet, new UserLookupRequest("j.kowalski") },
+        { MessageTypes.AuditQuery, null },
+        { MessageTypes.ActionPrepare, new ActionPrepareRequest(AdminActionKind.RestartComputer, "KS-101-01", null, null) },
+        { MessageTypes.TopologyGet, null },
+        { MessageTypes.FilesList, null },
+        { MessageTypes.FilesStat, null }
+    };
+
+    [Theory]
+    [MemberData(nameof(ZadaniaKlientaBezPing))]
+    public async Task Rola_student_dostaje_forbidden_bez_danych(string type, object? payload)
+    {
+        var router = CreateRouter();
+        var student = RoleCatalog.CreateIdentity("u.czen", "Student");
+
+        var exception = await Assert.ThrowsAsync<ProtocolException>(() =>
+            router.HandleAsync(WsEnvelope.Create(type, "req-student", payload), student));
+
+        Assert.Equal(ErrorCode.Forbidden, exception.Code);
+        Assert.DoesNotContain("KS-101", exception.Message);
+    }
+
+    [Theory]
+    [InlineData(MessageTypes.TopologyGet)]
+    [InlineData(MessageTypes.FilesList)]
+    [InlineData(MessageTypes.FilesStat)]
+    public async Task Readonly_przechodzi_sprawdzenie_uprawnienia_dla_topologii_i_plikow(string type)
+    {
+        // D7/D4: ReadOnly ma topology.read i files.read. Typy są zarezerwowane do ZAD-04/ZAD-07,
+        // więc dziś odpowiedź to invalidRequest — ale NIE forbidden (uprawnienie jest).
+        var router = CreateRouter();
+        var readOnly = RoleCatalog.CreateIdentity("dyzurka", Roles.ReadOnly);
+
+        var exception = await Assert.ThrowsAsync<ProtocolException>(() =>
+            router.HandleAsync(WsEnvelope.Create(type, "req-ro"), readOnly));
+
+        Assert.Equal(ErrorCode.InvalidRequest, exception.Code);
+    }
+
     private static MessageRouter CreateRouter(
         IAdDirectory? users = null,
         ILoginLog? logins = null) =>

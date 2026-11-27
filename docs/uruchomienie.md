@@ -103,9 +103,16 @@ Gdy test nie przejdzie, krok „Szczegóły nieudanych testów” wypisuje nazw�
 | `Security:RequireToken` | czy wymagać tokenu w trybie `Token` | `true` |
 | `Security:Tokens[]` | lista `Name`/`Token`/`Role` (ignorowana w trybie Windows) | dwa tokeny dev |
 | `Security:RoleGroups` | mapowanie grup AD → rola | 3 grupy ZSE-Admin-* |
+| `Security:DeniedGroups` | grupy wykluczające (D10: deny overrides) — członek nigdy nie dostaje sesji, nawet z grupą `ZSE-Admin-*`; w produkcji wymagana, bez grup szerokich | `["ZSE-Uczniowie"]` |
 | `Security:TeacherClassrooms` | stałe przypisanie nauczyciela do pracowni | mapa dev |
 | `Security:TeachingSlots` | okna zajęć (dni i godziny UTC) | pusta |
 | `Security:EnforceTeacherClassroomScope` | ogranicz historię do pracowni z zajęciami | `true` |
+
+`Security:DeniedGroups` w produkcji: podmień wzorzec `ZSE-Uczniowie` na rzeczywistą, **wąską** grupę
+uczniowską w domenie. `ProductionConfigurationGuard` nie wystartuje, gdy lista jest pusta albo zawiera
+`Domain Users`, `Users`, `Everyone`, `Authenticated Users` lub `Domain Computers` (zablokowałyby
+konta usługowe). Odmowa trafia do audytu jako `auth.rejected` (`detail` = `denied_group`), a klient
+pokazuje ekran „Brak dostępu” — nie puste tabele.
 
 Sekrety trzymaj poza repozytorium: `appsettings.Local.json` (ignorowany przez git) albo zmienne środowiskowe, np.
 

@@ -46,21 +46,27 @@ public static class WsEndpoint
             return;
         }
 
-        var identity = authenticator.Authenticate(context.Request);
-        if (identity is null)
+        var authentication = authenticator.Authenticate(context.Request);
+        if (!authentication.Succeeded || authentication.Identity is null)
         {
             // Odmowa przed upgrade'em: klient dostaje 401 i nie tworzy sesji.
+            // Kod przyczyny jest stabilny i nie zawiera danych osobowych poza nazwą konta (actor).
+            var rejection = authentication.RejectionCode ?? RejectionCodes.NotAuthenticated;
+
             logger.LogWarning(
-                "Odrzucono połączenie WS z {Remote} ({User}) — brak poprawnego tokenu / grupy AD " +
+                "Odrzucono połączenie WS z {Remote} ({User}) — {Rejection} " +
                 "(Mode={Mode}, RequireToken={RequireToken}).",
-                remote, actor, security.Mode, security.RequireToken);
+                remote, actor, rejection, security.Mode, security.RequireToken);
 
             await RecordAsync(
                 audit, context.RequestAborted, actor, "auth.rejected", remote,
-                "Brak tokenu lub brak grupy ZSE-Admin-*.");
+                $"Odmowa uwierzytelnienia ({rejection}): brak tokenu, roli ZSE-Admin-* " +
+                "albo konto w grupie wykluczającej.");
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             return;
         }
+
+        var identity = authentication.Identity;
 
         using var socket = await context.WebSockets.AcceptWebSocketAsync();
         var connection = new WsConnection(socket, identity, router, registry, logger);

@@ -20,15 +20,15 @@ public sealed class TokenAuthenticator : ITokenAuthenticator
         _transport = transport;
     }
 
-    public ClientIdentity? Authenticate(HttpRequest request)
+    public AuthenticationResult Authenticate(HttpRequest request)
     {
         var remoteAddress = request.HttpContext.Connection.RemoteIpAddress?.ToString();
         var secure = _transport.IsSecure(request);
 
         if (!_options.RequireToken)
         {
-            return RoleCatalog.CreateIdentity(
-                "anonymous-dev", Roles.Administrator, null, remoteAddress, secure);
+            return AuthenticationResult.Success(RoleCatalog.CreateIdentity(
+                "anonymous-dev", Roles.Administrator, null, remoteAddress, secure));
         }
 
         var token = request.Query["access_token"].FirstOrDefault();
@@ -39,19 +39,21 @@ public sealed class TokenAuthenticator : ITokenAuthenticator
 
         if (string.IsNullOrWhiteSpace(token))
         {
-            return null;
+            return AuthenticationResult.Reject(RejectionCodes.TokenMissing);
         }
 
         foreach (var entry in _options.Tokens)
         {
             if (!string.IsNullOrEmpty(entry.Token) && FixedTimeEquals(entry.Token, token))
             {
-                return RoleCatalog.CreateIdentity(
-                    entry.Name, entry.Role, null, remoteAddress, secure);
+                // Rola spoza katalogu (np. „Student") nie ma żadnych uprawnień — deny-by-default
+                // (D10) obowiązuje też w trybie deweloperskim.
+                return AuthenticationResult.Success(RoleCatalog.CreateIdentity(
+                    entry.Name, entry.Role, null, remoteAddress, secure));
             }
         }
 
-        return null;
+        return AuthenticationResult.Reject(RejectionCodes.TokenInvalid);
     }
 
     private static bool FixedTimeEquals(string expected, string actual)

@@ -93,6 +93,16 @@ pełny `logins.query`.
 | `audit.query` | `audit.read` | `AuditQueryRequest` | `AuditQueryResponse` |
 | `action.prepare` | `computers.control` lub `users.write` | `ActionPrepareRequest` | `ActionPrepareResponse` |
 | `action.execute` | jw. + ważny token potwierdzenia | `ActionExecuteRequest` | `ActionExecuteResponse` |
+| `topology.get` (ZAD-04) | `topology.read` — wszystkie role aplikacji (D7) | brak | `TopologyResponse` (po ZAD-04) |
+| `files.list` (ZAD-07) | `files.read` — wszystkie role aplikacji (D4) | `FileListRequest` (po ZAD-07) | `FileListResponse` (po ZAD-07) |
+| `files.stat` (ZAD-07) | `files.read` (D4) | `FileStatRequest` (po ZAD-07) | `FileStatResponse` (po ZAD-07) |
+
+**Fail-close uprawnień (ZAD-06/D10):** serwer najpierw sprawdza, czy `type` jest w katalogu
+protokołu, potem czy ma przypisane uprawnienie, a dopiero potem wykonuje obsługę. Typ z katalogu
+bez wpisu w `MessageCapabilities` → `forbidden`; rola bez uprawnienia → `forbidden` bez żadnych
+danych; typ spoza katalogu → `invalidRequest`. `topology.get`, `files.list` i `files.stat` są
+zarezerwowane w wersji 1: do czasu ZAD-04/ZAD-07 rola uprawniona dostaje `invalidRequest`,
+a rola bez uprawnienia (np. konto uczniowskie) `forbidden`.
 
 `LoginQueryRequest` ma dodatkowe opcjonalne `classroomId` / `classroomIds`. Serwer **nadpisuje**
 je dla roli Teacher — klient nie może poszerzyć zakresu, a filtr po komputerze spoza zakresu
@@ -325,7 +335,7 @@ szczegóły obiektu w UI. `AuditEntryDto` zawiera `actor`, `role`, `capability`,
 | Kod | Znaczenie | Reakcja klienta |
 |---|---|---|
 | `invalidRequest` | nieznany `type`, zły payload, nieczytelny JSON | błąd programisty — pokazać w logu |
-| `unauthorized` | brak/zły token lub brak grupy AD (HTTP 401 przed upgrade'em) | nie ponawiać w pętli; poprosić o konfigurację |
+| `unauthorized` | brak/zły token, brak grupy AD albo konto w grupie wykluczającej `Security:DeniedGroups` (HTTP 401 przed upgrade'em, wpis `auth.rejected`) | pokazać ekran „Brak dostępu”; nie ponawiać w pętli |
 | `forbidden` | rola bez uprawnienia, nauczyciel poza zakresem, zapis wyłączony | ukryć akcję w UI, pokazać zakres z `welcome` |
 | `notFound` | brak zasobu (np. konto/komputer akcji) | pusty stan z komunikatem |
 | `upstreamUnavailable` | źródło (AD, LDAP, dziennik, WinRM, `shutdown.exe`) nieosiągalne; `detail` ma komunikat źródła | pokazać „dane niedostępne” + źródło, pozwolić na ponowienie — **nie** pokazywać pustej listy ani „sukcesu” |
@@ -344,6 +354,8 @@ szczegóły obiektu w UI. `AuditEntryDto` zawiera `actor`, `role`, `capability`,
 | 2 z 6 stacji bez dziennika | poprawna lista + `completeness = partial` i nota z liczbą stacji |
 | Nauczyciel prosi o obcą pracownię | `error: forbidden` z komunikatem o braku zajęć |
 | Połączenie bez `wss` w produkcji | HTTP 403 + wpis `transport.rejected` w audycie |
+| Konto w grupie `ZSE-Uczniowie` (także z grupą `ZSE-Admin-*`) | HTTP 401 **przed** upgrade'em, wpis `auth.rejected` z kodem przyczyny; brak `welcome` |
+| Rola bez uprawnienia (np. `Student` z tokenu deweloperskiego) | `error: forbidden` dla każdego typu żądania — bez danych, także `topology.get` i `files.list` |
 | Awaria `action.execute` | `error: upstreamUnavailable` z nazwą źródła + wpis audytu `result = failed` |
 
 Zasada: **pusty wynik nigdy nie jest jedyną informacją** — zawsze towarzyszy mu
@@ -376,6 +388,8 @@ pozostaje `1`, a starszy klient może ignorować nieznane wiadomości:
 | `welcome.classroomScope` | nowe opcjonalne pole |
 | `LoginQueryRequest.classroomId` / `classroomIds` | nowe opcjonalne pola; dla Teacher nadpisywane przez serwer |
 | `LoginEventDto.classroomId` | nowe opcjonalne pole |
+| `topology.get`, `files.list`, `files.stat` | nowe `type` zarezerwowane w wersji 1 (ZAD-06); implementacja w ZAD-04/ZAD-07 |
+| kody `auth.rejected`: `denied_group`, `role_group_missing`, `token_missing`, `token_invalid`, `not_authenticated` | wartości w `detail` wpisu audytu, nie w odpowiedzi HTTP |
 
 Nie zmieniono znaczenia żadnego istniejącego pola. `logins.query` nadal zwraca `LoginsResponse`
 z `items`, `totalMatched` i `freshness`; M2 zmienia jedynie źródło danych i treść noty.

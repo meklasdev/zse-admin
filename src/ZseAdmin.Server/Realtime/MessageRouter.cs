@@ -93,6 +93,30 @@ public sealed class MessageRouter
             throw new ProtocolException(ErrorCode.InvalidRequest, "Pole 'type' jest wymagane.");
         }
 
+        // D10 — deny-by-default na poziomie protokołu:
+        // 1) typ spoza katalogu protokołu → invalidRequest,
+        // 2) typ z katalogu bez przypisanego uprawnienia → forbidden (fail-close),
+        // 3) rola bez uprawnienia → forbidden. Sprawdzenie jest PRZED obsługą żądania,
+        //    więc uczniowi/nieznanej roli nie wycieknie żadna dana ani informacja o źródle.
+        if (!MessageCapabilities.IsProtocolRequest(request.Type))
+        {
+            throw new ProtocolException(
+                ErrorCode.InvalidRequest,
+                $"Nieznany typ wiadomości: '{request.Type}'.");
+        }
+
+        if (!MessageCapabilities.TryGetCapability(request.Type, out var requiredCapability))
+        {
+            throw new ProtocolException(
+                ErrorCode.Forbidden,
+                $"Typ '{request.Type}' nie ma przypisanego uprawnienia — żądanie odrzucone (fail-close).");
+        }
+
+        if (requiredCapability is not null)
+        {
+            CapabilityGuard.Require(identity, requiredCapability);
+        }
+
         switch (request.Type)
         {
             case MessageTypes.Ping:
@@ -119,6 +143,18 @@ public sealed class MessageRouter
             case MessageTypes.ActionExecute:
                 return await HandleActionExecuteAsync(request, identity, cancellationToken);
 
+            case MessageTypes.TopologyGet:
+            case MessageTypes.FilesList:
+            case MessageTypes.FilesStat:
+                // Typy zarezerwowane w wersji 1 protokołu; uprawnienie zostało już sprawdzone
+                // wyżej (topology.read / files.read). Implementacja: ZAD-04 (topologia)
+                // i ZAD-07 (/pepsi). Do tego czasu rola uprawniona dostaje invalidRequest,
+                // a rola bez uprawnienia forbidden — nigdy danych.
+                throw new ProtocolException(
+                    ErrorCode.InvalidRequest,
+                    $"Typ '{request.Type}' jest zarezerwowany w protokole, ale nieobsługiwany " +
+                    "przez tę wersję serwera.");
+
             case MessageTypes.Welcome:
             case MessageTypes.ComputerStatusEvent:
             case MessageTypes.LoginEventsEvent:
@@ -128,9 +164,10 @@ public sealed class MessageRouter
                     $"Typ '{request.Type}' jest zarezerwowany dla serwera.");
 
             default:
+                // Typ z katalogu protokołu bez gałęzi obsługi — fail-close, bez danych.
                 throw new ProtocolException(
-                    ErrorCode.InvalidRequest,
-                    $"Nieznany typ wiadomości: '{request.Type}'.");
+                    ErrorCode.Forbidden,
+                    $"Typ '{request.Type}' nie ma zdefiniowanej obsługi — żądanie odrzucone (fail-close).");
         }
     }
 

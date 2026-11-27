@@ -11,6 +11,7 @@ pozostaje źródłem wymagań.
 | Chcesz… | Zajrzyj do |
 |---|---|
 | obejrzeć klienta WPF jako EXE z lokalnym API demo albo prototyp przeglądarkowy | [`docs/demo-beta.md`](docs/demo-beta.md) |
+| spisać uwagi do wyglądu i działania interfejsu beta | [`docs/feedback-ui-beta.md`](docs/feedback-ui-beta.md) |
 | poznać ocenę wymagań, ryzyka i luki | [`docs/ocena.md`](docs/ocena.md) |
 | zrozumieć komponenty i wdrożenie | [`docs/architektura.md`](docs/architektura.md) |
 | zobaczyć kontrakt klient–serwer | [`docs/api-websocket.md`](docs/api-websocket.md) |

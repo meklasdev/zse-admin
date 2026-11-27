@@ -7,13 +7,19 @@
         MinHeight="620"
         MinWidth="1100"
         WindowStartupLocation="CenterScreen"
-        Background="#F3F4F6"
-        FontFamily="Segoe UI">
+        Background="{StaticResource Brush.AppBackground}"
+        FontFamily="{StaticResource Font.Default}"
+        Foreground="{StaticResource Brush.Text}">
 
     <DockPanel>
 
-        <!-- Pasek nagłówka: tożsamość, świeżość danych, stan połączenia -->
-        <Border DockPanel.Dock="Top" Background="#1F2937" Padding="16,12">
+        <!-- Pasek nagłówka: tożsamość, świeżość danych, stan połączenia.
+             Jasna powierzchnia + 1px linia podziału (bez ciemnego paska, bez poświaty). -->
+        <Border DockPanel.Dock="Top"
+                Background="{StaticResource Brush.Surface}"
+                BorderBrush="{StaticResource Brush.Border}"
+                BorderThickness="{StaticResource Line.Bottom}"
+                Padding="{StaticResource Padding.Header}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -24,50 +30,55 @@
 
                 <TextBlock Grid.Column="0"
                            Text="ZSE-Admin"
-                           Foreground="White"
-                           FontSize="18"
-                           FontWeight="SemiBold"
+                           Style="{StaticResource Text.Title}"
                            VerticalAlignment="Center" />
 
                 <TextBlock Grid.Column="1"
                            Text="{Binding IdentityText}"
-                           Foreground="#D1D5DB"
-                           FontSize="12"
+                           Style="{StaticResource Text.Body}"
+                           Foreground="{StaticResource Brush.TextMuted}"
                            Margin="18,0,0,0"
                            VerticalAlignment="Center" />
 
                 <TextBlock Grid.Column="2"
                            Text="{Binding FreshnessText}"
-                           Foreground="#FCD34D"
-                           FontSize="12"
+                           Style="{StaticResource Text.Meta}"
+                           Foreground="{StaticResource Brush.StatusWarn}"
                            Margin="24,0,16,0"
                            VerticalAlignment="Center"
+                           TextWrapping="NoWrap"
                            TextTrimming="CharacterEllipsis" />
 
                 <TextBlock Grid.Column="3"
                            Text="{Binding ConnectionStatusText}"
-                           Foreground="#93C5FD"
-                           FontSize="12"
+                           Style="{StaticResource Text.Body}"
+                           Foreground="{StaticResource Brush.Accent}"
                            FontWeight="SemiBold"
                            VerticalAlignment="Center" />
             </Grid>
         </Border>
 
         <!-- Pasek dolny: komunikat operacyjny i odświeżanie -->
-        <Border DockPanel.Dock="Bottom" Background="#E5E7EB" Padding="16,8">
+        <Border DockPanel.Dock="Bottom"
+                Background="{StaticResource Brush.SurfaceMuted}"
+                BorderBrush="{StaticResource Brush.Border}"
+                BorderThickness="{StaticResource Line.Top}"
+                Padding="{StaticResource Padding.Footer}">
             <DockPanel>
                 <Button DockPanel.Dock="Right"
                         Content="Odśwież"
+                        Style="{StaticResource Button.Primary}"
                         Command="{Binding RefreshCommand}" />
                 <TextBlock Text="{Binding StatusMessage}"
-                           Foreground="#374151"
-                           FontSize="12"
+                           Style="{StaticResource Text.Body}"
+                           Foreground="{StaticResource Brush.TextMuted}"
+                           Margin="0,0,12,0"
                            VerticalAlignment="Center"
                            TextTrimming="CharacterEllipsis" />
             </DockPanel>
         </Border>
 
-        <Grid Margin="12">
+        <Grid Margin="{StaticResource Padding.Window}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="230" />
                 <ColumnDefinition Width="12" />
@@ -77,23 +88,25 @@
             </Grid.ColumnDefinitions>
 
             <!-- Pracownie -->
-            <Border Grid.Column="0" Background="White" BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="8" Padding="12">
+            <Border Grid.Column="0" Style="{StaticResource CardSurface}">
                 <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="Pracownie" Style="{StaticResource SectionTitle}" />
+                    <TextBlock DockPanel.Dock="Top" Text="Pracownie" Style="{StaticResource Text.Section}" />
                     <TextBlock DockPanel.Dock="Top"
                                Text="Nauczyciel widzi tylko pracownie, w których ma teraz zajęcia."
-                               Style="{StaticResource Hint}"
+                               Style="{StaticResource Text.Meta}"
                                Margin="0,0,0,8" />
                     <ListBox ItemsSource="{Binding Classrooms}"
-                             SelectedItem="{Binding SelectedClassroom}"
-                             BorderThickness="0"
-                             Background="Transparent"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                             SelectedItem="{Binding SelectedClassroom}">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <StackPanel Margin="0,4">
-                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Text="{Binding Summary}" Foreground="#6B7280" FontSize="11" TextTrimming="CharacterEllipsis" />
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Name}"
+                                               Style="{StaticResource Text.Body}"
+                                               FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Summary}"
+                                               Style="{StaticResource Text.Meta}"
+                                               TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
@@ -102,25 +115,16 @@
             </Border>
 
             <!-- Komputery -->
-            <Border Grid.Column="2" Background="White" BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="8" Padding="12">
+            <Border Grid.Column="2" Style="{StaticResource CardSurface}">
                 <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="Komputery" Style="{StaticResource SectionTitle}" />
+                    <TextBlock DockPanel.Dock="Top" Text="Komputery" Style="{StaticResource Text.Section}" />
                     <TextBlock DockPanel.Dock="Top"
                                Text="Stan i IP to informacja bieżąca lub ostatnio zaobserwowana — kolumna „Ostatni stan” pokazuje kiedy. Wybór wiersza ustawia cel akcji i audytu."
-                               Style="{StaticResource Hint}"
+                               Style="{StaticResource Text.Meta}"
                                Margin="0,0,0,8" />
                     <DataGrid ItemsSource="{Binding Computers}"
                               SelectedItem="{Binding SelectedComputer}"
-                              SelectionMode="Single"
-                              AutoGenerateColumns="False"
-                              IsReadOnly="True"
-                              CanUserAddRows="False"
-                              CanUserResizeRows="False"
-                              HeadersVisibility="Column"
-                              GridLinesVisibility="Horizontal"
-                              BorderThickness="0"
-                              RowHeight="26"
-                              AlternatingRowBackground="#F9FAFB">
+                              AutoGenerateColumns="False">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Komputer" Binding="{Binding Name}" Width="130" />
                             <DataGridTextColumn Header="Stan" Binding="{Binding StatusText}" Width="90" />
@@ -135,24 +139,26 @@
             </Border>
 
             <!-- Logowania, akcje i audyt -->
-            <Border Grid.Column="4" Background="White" BorderBrush="#E5E7EB" BorderThickness="1" CornerRadius="8" Padding="12">
-                <TabControl BorderThickness="0" Background="Transparent">
+            <Border Grid.Column="4" Style="{StaticResource CardSurface}">
+                <TabControl>
                     <TabItem Header="Logowania">
                         <DockPanel Margin="0,8,0,0">
-                            <TextBlock DockPanel.Dock="Top" Text="Ostatnie logowania" Style="{StaticResource SectionTitle}" />
+                            <TextBlock DockPanel.Dock="Top" Text="Ostatnie logowania" Style="{StaticResource Text.Section}" />
                             <TextBlock DockPanel.Dock="Top"
                                        Text="Historia zdarzeń, nie lista aktywnych sesji. Nowe zdarzenia przychodzą z serwera bez odświeżania."
-                                       Style="{StaticResource Hint}"
+                                       Style="{StaticResource Text.Meta}"
                                        Margin="0,0,0,8" />
-                            <ListBox ItemsSource="{Binding Logins}"
-                                     BorderThickness="0"
-                                     Background="Transparent"
-                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                            <ListBox ItemsSource="{Binding Logins}">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate>
-                                        <StackPanel Margin="0,3">
-                                            <TextBlock Text="{Binding Headline}" FontWeight="SemiBold" FontSize="12" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{Binding Detail}" Foreground="#6B7280" FontSize="11" TextWrapping="Wrap" />
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Headline}"
+                                                       Style="{StaticResource Text.Label}"
+                                                       Foreground="{StaticResource Brush.Text}"
+                                                       FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Detail}"
+                                                       Style="{StaticResource Text.Meta}" />
                                         </StackPanel>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
@@ -163,83 +169,83 @@
                     <TabItem Header="Akcje i audyt">
                         <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,8,0,0">
                             <StackPanel>
-                                <TextBlock Text="Akcje (wymagają potwierdzenia)" Style="{StaticResource SectionTitle}" />
+                                <TextBlock Text="Akcje (wymagają potwierdzenia)" Style="{StaticResource Text.Section}" />
 
-                                <TextBlock Text="Cel operacji: komputer albo konto AD" Style="{StaticResource Hint}" />
+                                <TextBlock Text="Cel operacji: komputer albo konto AD" Style="{StaticResource Text.Label}" />
                                 <TextBox Text="{Binding ActionTargetText, UpdateSourceTrigger=PropertyChanged}" />
 
-                                <TextBlock Text="Grupa AD (tylko „Dodaj do grupy”)" Style="{StaticResource Hint}" />
+                                <TextBlock Text="Grupa AD (tylko „Dodaj do grupy”)" Style="{StaticResource Text.Label}" />
                                 <TextBox Text="{Binding GroupNameText, UpdateSourceTrigger=PropertyChanged}" />
 
-                                <TextBlock Text="Powód (opcjonalnie, trafia do audytu)" Style="{StaticResource Hint}" />
+                                <TextBlock Text="Powód (opcjonalnie, trafia do audytu)" Style="{StaticResource Text.Label}" />
                                 <TextBox Text="{Binding ActionReasonText, UpdateSourceTrigger=PropertyChanged}" />
 
                                 <StackPanel Orientation="Horizontal"
+                                            Margin="0,4,0,0"
                                             Visibility="{Binding CanControlComputers, Converter={StaticResource BoolToVisibility}}">
                                     <Button Content="Restart stacji" Command="{Binding RestartCommand}" />
                                     <Button Content="Zablokuj ekran" Command="{Binding LockCommand}" />
                                 </StackPanel>
 
                                 <StackPanel Orientation="Horizontal"
+                                            Margin="0,4,0,0"
                                             Visibility="{Binding CanWriteUsers, Converter={StaticResource BoolToVisibility}}">
                                     <Button Content="Reset hasła" Command="{Binding ResetPasswordCommand}" />
                                     <Button Content="Dodaj do grupy" Command="{Binding AddToGroupCommand}" />
                                 </StackPanel>
 
                                 <TextBlock Text="Akcje są widoczne tylko wtedy, gdy rola ma odpowiednie uprawnienie."
-                                           Style="{StaticResource Hint}"
-                                           Margin="0,4,0,8" />
+                                           Style="{StaticResource Text.Meta}"
+                                           Margin="0,8,0,8" />
 
-                                <Border Background="#FEF3C7"
-                                        BorderBrush="#F59E0B"
-                                        BorderThickness="1"
-                                        CornerRadius="6"
-                                        Padding="10"
+                                <Border Style="{StaticResource Card.Warning}"
                                         Margin="0,4,0,8"
                                         Visibility="{Binding CanConfirmAction, Converter={StaticResource BoolToVisibility}}">
                                     <StackPanel>
                                         <TextBlock Text="{Binding PendingActionText}"
-                                                   FontSize="12"
-                                                   TextWrapping="Wrap"
+                                                   Style="{StaticResource Text.Body}"
                                                    Margin="0,0,0,8" />
                                         <StackPanel Orientation="Horizontal">
-                                            <Button Content="Potwierdź" Command="{Binding ConfirmActionCommand}" />
+                                            <Button Content="Potwierdź"
+                                                    Style="{StaticResource Button.Primary}"
+                                                    Command="{Binding ConfirmActionCommand}" />
                                             <Button Content="Anuluj" Command="{Binding CancelActionCommand}" />
                                         </StackPanel>
                                     </StackPanel>
                                 </Border>
 
                                 <TextBlock Text="{Binding TemporaryPasswordText}"
-                                           Foreground="#B45309"
+                                           Style="{StaticResource Text.Body}"
+                                           Foreground="{StaticResource Brush.StatusWarn}"
                                            FontWeight="SemiBold"
-                                           FontSize="12"
-                                           TextWrapping="Wrap"
                                            Margin="0,0,0,8" />
 
-                                <Separator Margin="0,8" />
+                                <Border Style="{StaticResource SectionSeparator}" Margin="0,8" />
 
                                 <DockPanel>
                                     <Button DockPanel.Dock="Right"
                                             Content="Odśwież audyt"
                                             Command="{Binding RefreshAuditCommand}"
                                             Visibility="{Binding CanReadAudit, Converter={StaticResource BoolToVisibility}}" />
-                                    <TextBlock Text="Audyt operacji" Style="{StaticResource SectionTitle}" />
+                                    <TextBlock Text="Audyt operacji" Style="{StaticResource Text.Section}" />
                                 </DockPanel>
 
-                                <TextBlock Text="{Binding AuditSummaryText}" Style="{StaticResource Hint}" Margin="0,0,0,6" />
+                                <TextBlock Text="{Binding AuditSummaryText}" Style="{StaticResource Text.Meta}" Margin="0,0,0,6" />
 
                                 <ListBox ItemsSource="{Binding AuditItems}"
-                                         BorderThickness="0"
-                                         Background="Transparent"
                                          MinHeight="120"
                                          MaxHeight="220"
-                                         Visibility="{Binding CanReadAudit, Converter={StaticResource BoolToVisibility}}"
-                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                         Visibility="{Binding CanReadAudit, Converter={StaticResource BoolToVisibility}}">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
-                                            <StackPanel Margin="0,3">
-                                                <TextBlock Text="{Binding Headline}" FontWeight="SemiBold" FontSize="12" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding Detail}" Foreground="#6B7280" FontSize="11" TextWrapping="Wrap" />
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Headline}"
+                                                           Style="{StaticResource Text.Label}"
+                                                           Foreground="{StaticResource Brush.Text}"
+                                                           FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Detail}"
+                                                           Style="{StaticResource Text.Meta}" />
                                             </StackPanel>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>

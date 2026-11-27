@@ -114,6 +114,9 @@ internal static class Program
             if (viewModel.IsAccessDenied)
             {
                 Console.Error.WriteLine(AccessDenial.Message);
+                Console.Error.WriteLine(
+                    $"Status: {viewModel.StatusMessage} · połączenie: {viewModel.ConnectionStatusText} · " +
+                    $"transport: {connection.LastTransportError ?? "—"}");
                 return 4;
             }
 

@@ -126,8 +126,14 @@ jobs:
           $env:ASPNETCORE_ENVIRONMENT = "Development"
           $env:ZseAdmin__UseMockData = "true"
 
+          # dotnet run ustawia content root na katalog projektu, więc wczytuje appsettings.json
+          # z tokenami deweloperskimi (uruchomienie samego .dll z repo root nie widzi konfiguracji
+          # i odrzuca połączenie jako nieuwierzytelnione).
           $server = Start-Process dotnet `
-            -ArgumentList @("src/ZseAdmin.Server/bin/Release/net8.0/ZseAdmin.Server.dll", "--urls", "http://127.0.0.1:5080") `
+            -ArgumentList @(
+              "run", "--project", "src/ZseAdmin.Server", "-c", "Release", "--no-build",
+              "--no-launch-profile", "--urls", "http://127.0.0.1:5080"
+            ) `
             -NoNewWindow -PassThru `
             -RedirectStandardOutput "server.log" -RedirectStandardError "server.err"
 

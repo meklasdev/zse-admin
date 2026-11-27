@@ -117,54 +117,64 @@ jobs:
       - name: Build
         run: dotnet build ZseAdmin.sln -c Release
 
-      # Serwer działa w tle przez cały job: UseMockData = true, tryb Token (dev),
-      # Development, żeby nie uruchomiła się bramka produkcyjna (wymaga wss/Windows).
-      - name: Serwer z danymi przykładowymi
+      # Serwer i zrzuty w JEDNYM kroku: runner kończy procesy uruchomione w poprzednim
+      # kroku (cleanup po stepie), więc serwer w tle nie przetrwałby do następnego.
+      # UseMockData = true, tryb Token (dev), Development — bramka produkcyjna nie startuje.
+      - name: Serwer z danymi przykładowymi + zrzuty 100/125/150% DPI
         shell: pwsh
         run: |
           $env:ASPNETCORE_ENVIRONMENT = "Development"
           $env:ZseAdmin__UseMockData = "true"
-          Start-Process dotnet `
+
+          $server = Start-Process dotnet `
             -ArgumentList @("src/ZseAdmin.Server/bin/Release/net8.0/ZseAdmin.Server.dll", "--urls", "http://127.0.0.1:5080") `
             -NoNewWindow -PassThru `
-            -RedirectStandardOutput "server.log" -RedirectStandardError "server.err" | Out-Null
+            -RedirectStandardOutput "server.log" -RedirectStandardError "server.err"
 
-          for ($i = 0; $i -lt 60; $i++) {
-            try {
-              $response = Invoke-WebRequest "http://127.0.0.1:5080/healthz" -UseBasicParsing -TimeoutSec 2
-              if ($response.StatusCode -eq 200) {
-                $health = $response.Content | ConvertFrom-Json
-                Write-Output "Serwer gotowy: mockData=$($health.mockData), classrooms=$($health.classrooms)."
-                exit 0
+          try {
+            $ready = $false
+            for ($i = 0; $i -lt 60; $i++) {
+              try {
+                $response = Invoke-WebRequest "http://127.0.0.1:5080/healthz" -UseBasicParsing -TimeoutSec 2
+                if ($response.StatusCode -eq 200) { $ready = $true; break }
+              } catch {
+                Start-Sleep -Seconds 1
               }
-            } catch {
-              Start-Sleep -Seconds 1
+            }
+
+            if (-not $ready) {
+              Get-Content server.log, server.err -ErrorAction SilentlyContinue
+              Write-Output "::error::Serwer nie odpowiedział na /healthz w 60 s."
+              exit 1
+            }
+
+            $health = (Invoke-WebRequest "http://127.0.0.1:5080/healthz" -UseBasicParsing).Content | ConvertFrom-Json
+            Write-Output "Serwer gotowy: mockData=$($health.mockData), classrooms=$($health.classrooms), pid=$($server.Id)."
+
+            $arguments = @(
+              "run", "--project", "tools/ZseAdmin.Screenshots", "-c", "Release", "--no-build", "--",
+              "--out", "screenshots",
+              "--server", "ws://127.0.0.1:5080/ws",
+              "--token", "dev-admin-token",
+              "--wait", "120"
+            )
+
+            $output = & dotnet @arguments 2>&1 | Out-String
+            $code = $LASTEXITCODE
+            Write-Output $output
+
+            if ($code -ne 0) {
+              $flat = ($output -replace "`r?`n", " ").Trim()
+              if ($flat.Length -gt 900) { $flat = $flat.Substring(0, 900) + "…" }
+              Get-Content server.log, server.err -ErrorAction SilentlyContinue
+              Write-Output "::error::Zrzuty nie powstały (kod $code): $flat"
+              exit $code
             }
           }
-
-          Get-Content server.log, server.err -ErrorAction SilentlyContinue
-          Write-Error "Serwer nie odpowiedział na /healthz w 60 s."
-          exit 1
-
-      - name: Zrzuty 100/125/150% DPI
-        shell: pwsh
-        run: |
-          $arguments = @(
-            "run", "--project", "tools/ZseAdmin.Screenshots", "-c", "Release", "--no-build", "--",
-            "--out", "screenshots",
-            "--server", "ws://127.0.0.1:5080/ws",
-            "--token", "dev-admin-token",
-            "--wait", "120"
-          )
-
-          $output = & dotnet @arguments 2>&1 | Out-String
-          Write-Output $output
-
-          if ($LASTEXITCODE -ne 0) {
-            $flat = ($output -replace "`r?`n", " ").Trim()
-            if ($flat.Length -gt 900) { $flat = $flat.Substring(0, 900) + "…" }
-            Write-Output "::error::Zrzuty nie powstały (kod $LASTEXITCODE): $flat"
-            exit $LASTEXITCODE
+          finally {
+            if ($server -and -not $server.HasExited) {
+              Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
+            }
           }
 
       # Diagnostyka, gdy zrzuty się nie powiodą: log serwera wyjaśnia brak danych.

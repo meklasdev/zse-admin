@@ -34,7 +34,13 @@ internal sealed class LocalDemoHost : IAsyncDisposable
             throw new InvalidOperationException("Lokalne API nie udostępniło adresu loopback.");
         }
 
-        return new UriBuilder(baseAddress) { Path = "/ws" }.Uri;
+        var webSocketAddress = new UriBuilder(baseAddress)
+        {
+            Scheme = baseAddress.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase) ? "wss" : "ws",
+            Path = "/ws"
+        };
+
+        return webSocketAddress.Uri;
     }
 
     public async ValueTask DisposeAsync()

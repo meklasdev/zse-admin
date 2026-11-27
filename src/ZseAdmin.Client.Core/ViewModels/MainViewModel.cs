@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Net.Sockets;
+using System.Net.WebSockets;
 using ZseAdmin.Client.Core.Api;
 using ZseAdmin.Client.Core.Connection;
 using ZseAdmin.Client.Core.Display;
@@ -33,9 +35,9 @@ public sealed class MainViewModel : ObservableObject
     private IReadOnlyList<string>? _classroomScope;
     private ActionPrepareResponse? _pendingAction;
 
-    private string _connectionStatusText = "brak połączenia";
-    private string _identityText = "niezidentyfikowany";
-    private string _freshnessText = "Dane: —";
+    private string _connectionStatusText = "uruchamianie…";
+    private string _identityText = "oczekiwanie na serwer";
+    private string _freshnessText = "Oczekiwanie na dane…";
     private string? _statusMessage = "Łączenie z serwerem…";
     private string _actionTargetText = string.Empty;
     private string? _groupNameText;
@@ -315,7 +317,7 @@ public sealed class MainViewModel : ObservableObject
             if (state is ConnectionState.Reconnecting or ConnectionState.Disconnected)
             {
                 StatusMessage = _connection.LastTransportError is { Length: > 0 } error
-                    ? $"Brak połączenia: {error}"
+                    ? $"Brak połączenia: {FriendlyTransportError(error)}"
                     : "Brak połączenia z serwerem — dane mogą być nieaktualne.";
             }
 
@@ -736,7 +738,26 @@ public sealed class MainViewModel : ObservableObject
         ex is ServerErrorException serverError
             ? $"{prefix}: {serverError.Message}" +
               (string.IsNullOrWhiteSpace(serverError.Detail) ? string.Empty : $" ({serverError.Detail})")
-            : $"{prefix}: {ex.Message}";
+            : ex is WebSocketException or HttpRequestException or SocketException or UriFormatException
+                ? $"{prefix}: {FriendlyTransportError(ex.Message)}"
+                : $"{prefix}: {ex.Message}";
+
+    private static string FriendlyTransportError(string detail)
+    {
+        if (detail.Contains("Only Uris starting with", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Adres serwera jest nieprawidłowy. Oczekiwano adresu WebSocket ws:// lub wss://.";
+        }
+
+        if (detail.Contains("actively refused", StringComparison.OrdinalIgnoreCase) ||
+            detail.Contains("connection refused", StringComparison.OrdinalIgnoreCase) ||
+            detail.Contains("No connection could be made", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Lokalne API nie odpowiada. Zamknij i uruchom ponownie aplikację.";
+        }
+
+        return "Nie udało się nawiązać połączenia. Sprawdź serwer i spróbuj ponownie.";
+    }
 
     private static string BuildFreshnessText(DataFreshnessDto computers, DataFreshnessDto? logins)
     {

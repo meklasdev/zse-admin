@@ -17,8 +17,8 @@ public sealed class AccessDenialTests
     public void Komunikat_braku_dostepu_nie_jest_komunikatem_braku_danych()
     {
         Assert.DoesNotContain("brak danych", AccessDenial.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.NotEqual(DisplayFormat.Completeness(DataCompleteness.Unavailable), AccessDenial.Message);
-        Assert.NotEqual(DisplayFormat.Status(ComputerStatus.Unknown), AccessDenial.Message);
+        Assert.NotEqual(AccessDenial.Message, DisplayFormat.Completeness(DataCompleteness.Unavailable));
+        Assert.NotEqual(AccessDenial.Message, DisplayFormat.Status(ComputerStatus.Unknown));
         Assert.Contains("Brak dostępu", AccessDenial.Message, StringComparison.Ordinal);
         Assert.Contains("administrator", AccessDenial.Message, StringComparison.OrdinalIgnoreCase);
     }

@@ -43,6 +43,7 @@ internal static class Program
         catch (ArgumentException ex)
         {
             Console.Error.WriteLine(ex.Message);
+            Console.Error.WriteLine("Otrzymane argumenty: " + string.Join(" | ", args));
             return 1;
         }
 

@@ -147,12 +147,25 @@ jobs:
           exit 1
 
       - name: Zrzuty 100/125/150% DPI
-        run: >-
-          dotnet run --project tools/ZseAdmin.Screenshots -c Release --no-build --
-          --out screenshots
-          --server ws://127.0.0.1:5080/ws
-          --token dev-admin-token
-          --wait 120
+        shell: pwsh
+        run: |
+          $arguments = @(
+            "run", "--project", "tools/ZseAdmin.Screenshots", "-c", "Release", "--no-build", "--",
+            "--out", "screenshots",
+            "--server", "ws://127.0.0.1:5080/ws",
+            "--token", "dev-admin-token",
+            "--wait", "120"
+          )
+
+          $output = & dotnet @arguments 2>&1 | Out-String
+          Write-Output $output
+
+          if ($LASTEXITCODE -ne 0) {
+            $flat = ($output -replace "`r?`n", " ").Trim()
+            if ($flat.Length -gt 900) { $flat = $flat.Substring(0, 900) + "…" }
+            Write-Output "::error::Zrzuty nie powstały (kod $LASTEXITCODE): $flat"
+            exit $LASTEXITCODE
+          }
 
       # Diagnostyka, gdy zrzuty się nie powiodą: log serwera wyjaśnia brak danych.
       - name: Log serwera (tylko przy błędzie)

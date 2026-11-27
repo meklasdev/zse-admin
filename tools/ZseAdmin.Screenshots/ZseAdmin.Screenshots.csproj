@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Narzędzie deweloperskie i CI: renderuje realny MainWindow.xaml do PNG. -->
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>ZseAdmin.Screenshots</RootNamespace>
+    <AssemblyName>ZseAdmin.Screenshots</AssemblyName>
+    <Version>0.1.0</Version>
+    <!-- Pozwala na restore poza Windows; renderowanie i tak wymaga WPF (Windows). -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <!-- Świadomie konsolowy Exe: logi zrzutów muszą trafiać do logu CI, nie do okna. -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ZseAdmin.Client\ZseAdmin.Client.csproj" />
+    <ProjectReference Include="..\..\src\ZseAdmin.Client.Core\ZseAdmin.Client.Core.csproj" />
+    <ProjectReference Include="..\..\src\ZseAdmin.Contracts\ZseAdmin.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

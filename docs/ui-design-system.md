@@ -8,7 +8,7 @@ to [`zadania/01-design-system.md`](zadania/01-design-system.md), a kontrola w CI
 
 **Stan realizacji (2026-11-27):** ZAD-01 zrobione (PR #18) — `Styles/Theme.xaml` i `Styles/Controls.xaml`
 są jedynym źródłem wartości, `MainWindow.xaml` nie zawiera literałów kolorów. Zrzuty 100/125/150% DPI
-pozostają do wykonania na stacji Windows (CI nie renderuje WPF) — patrz §5.
+generuje CI (ZAD-11, `tools/ZseAdmin.Screenshots`) — patrz §5.1.
 
 Stosujemy go zarówno do istniejących ekranów (`MainWindow.xaml`), jak i do nowych widoków
 (topologia, pliki). Wszystkie kolory, grubości, promienie i odstępy pochodzą z jednego zestawu
@@ -226,8 +226,9 @@ pod kontrolką. Formularze nie „pływają” — brak cieni i podniesionych ka
 - [x] Stany hover / focus / active / disabled / error / empty / forbidden / stale — bez glow.
 - [ ] Ikony z jednego źródła — realizuje ZAD-02 (poza zakresem ZAD-01).
 - [x] Noty `freshness` i `completeness` widoczne; `unknown` nie jest opisane jako `offline`.
-- [ ] Zrzut ekranu przy 100% / 125% / 150% DPI — **do wykonania na stacji Windows**; środowisko agenta
-  (Linux, brak .NET SDK i pulpitu) nie renderuje WPF, a CI buduje bez interfejsu graficznego.
+- [x] Zrzut ekranu przy 100% / 125% / 150% DPI — generowany automatycznie w CI (job `screenshots`,
+  ZAD-11): realny `MainWindow.xaml` + serwer z `UseMockData = true`, pliki `main-100/125/150.png`
+  i `akcje-i-audyt-100/125/150.png` w artefakcie `ui-screenshots`.
 - [x] `dotnet build -c Release` i `dotnet test` zielone na `windows-latest` (PR #18).
 
 ## 6. Czego ten dokument nie zmienia

@@ -231,6 +231,26 @@ Błąd źródła (niezerowy kod `shutdown.exe`, odmowa WinRM/LDAP) wraca jako
 te same wpisy są widoczne w zakładce „Akcje i audyt” klienta WPF. Hasła są maskowane.
 Retencja audytu: 12 miesięcy, opcjonalny plik `ZseAdmin:Audit:FilePath` (JSONL, append-only).
 
+## 5e. Zrzuty ekranu UI (ZAD-11)
+
+Zrzuty generuje narzędzie renderujące **realne** `MainWindow.xaml` (bez makiety HTML) na danych
+z serwera w trybie `UseMockData = true`. Wymaga Windows (WPF) i uruchomionego serwera:
+
+```powershell
+# 1) serwer z danymi przykładowymi (osobne okno)
+dotnet run --project src/ZseAdmin.Server -c Release
+
+# 2) zrzuty 100 / 125 / 150% DPI do katalogu screenshots/
+dotnet run --project tools/ZseAdmin.Screenshots -c Release -- `
+  --server ws://127.0.0.1:5080/ws --token dev-admin-token --out screenshots
+```
+
+Pliki: `main-100/125/150.png` (zakładka „Logowania”) i `akcje-i-audyt-100/125/150.png`.
+Katalog `screenshots/` jest ignorowany przez git. Kody wyjścia: `0` sukces, `2` brak danych
+w czasie `--wait`, `3` błąd renderowania, `4` odmowa dostępu, `5` podejrzanie pusty zrzut.
+W CI robi to job `screenshots` (`pull_request` / `workflow_dispatch`) i publikuje artefakt
+`ui-screenshots` — szczegóły: [`zadania/11-zrzuty-ui-ci.md`](zadania/11-zrzuty-ui-ci.md).
+
 ## 6. Publikacja na Windows Server 2016
 
 ```powershell

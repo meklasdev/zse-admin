@@ -20,6 +20,7 @@ pozostaje źródłem wymagań.
 | zobaczyć notatki zamawiającego (sale, topologia, `/pepsi`, uczniowie) i podjęte decyzje D1–D10 | [`docs/notatki-zamawiajacego-2026-11-26.md`](docs/notatki-zamawiajacego-2026-11-26.md) |
 | poznać obowiązujący styl UI (spójny, flat, zero glow) | [`docs/ui-design-system.md`](docs/ui-design-system.md) |
 | przejrzeć backlog zadań dla deweloperów (M6–M8) | [`docs/zadania/`](docs/zadania/) |
+| zobaczyć zrzuty UI 100/125/150% DPI bez Windows | artefakt `ui-screenshots` w jobie `screenshots` CI — [`docs/zadania/11-zrzuty-ui-ci.md`](docs/zadania/11-zrzuty-ui-ci.md) |
 | sprawdzić decyzję o ikonach i pakiecie `SvgIcons` | [`docs/adr/0009-ikony-svg.md`](docs/adr/0009-ikony-svg.md) — przyjęte warunkowo (D8 = B) |
 | przekazać implementację M6–M8 kolejnemu agentowi | [`docs/zadania/PROMPT-dla-kolejnego-agenta.md`](docs/zadania/PROMPT-dla-kolejnego-agenta.md) |
 
@@ -140,6 +141,7 @@ przypadki błędów, zanim zostanie zaprojektowana nawigacja i szczegóły widok
 │   ├── ZseAdmin.Client.Core/    klient WS, API typowane, ViewModele (bez WPF)
 │   └── ZseAdmin.Client/         aplikacja WPF (XAML)
 ├── tests/ZseAdmin.Tests/        testy jednostkowe (xUnit)
+├── tools/ZseAdmin.Screenshots/  render realnego okna WPF do PNG (CI, 100/125/150% DPI)
 ├── scripts/                     uruchomienie i publikacja
 └── .github/workflows/ci.yml     build + testy na Windows
 ```
@@ -172,7 +174,8 @@ Szczegóły, konfiguracja i rozwiązywanie problemów: [`docs/uruchomienie.md`](
 - **Nowy backlog (2026-11-26): M6–M8 — w realizacji.** ZAD-01 (system projektowy UI: `Styles/Theme.xaml`
   + `Styles/Controls.xaml`, zero glow, `Segoe UI`) **zrobione** — PR #18; ZAD-06 (uczniowie bez dostępu:
   `Security:DeniedGroups`, deny overrides 401 + `auth.rejected`, fail-close `MessageCapabilities`,
-  ekran „Brak dostępu”) **zrobione** — PR #19; pozostałe zadania w kolejności
+  ekran „Brak dostępu”) **zrobione** — PR #19; ZAD-11 (automatyczne zrzuty UI z realnego klienta WPF
+  w GitHub Actions, artefakt `ui-screenshots`) **zrobione**; pozostałe zadania w kolejności
   z [`docs/zadania/README.md`](docs/zadania/README.md). Notatki zamawiającego
   (sale i diagram topologii w stylu Packet Tracer, brak dostępu uczniów, hosting plików `/pepsi`,
   konto AD → profil lokalny na stacji, ikony, jednolite UI bez poświaty) oraz 10 zadań dla

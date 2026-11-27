@@ -29,7 +29,7 @@ if ($SingleFile -and -not $Runtime) {
     throw "-SingleFile wymaga podania -Runtime (np. win-x64)."
 }
 
-$publishArgs = @("publish", "src/ZseAdmin.Client", "-c", $Configuration, "-o", $Output)
+$publishArgs = @("publish", "src/ZseAdmin.Client", "-c", $Configuration, "-o", $Output, "-p:ZseAdminClientBundle=true")
 if ($NoBuild) { $publishArgs += "--no-build" }
 if ($Runtime) { $publishArgs += @("-r", $Runtime, "--self-contained", "false") }
 if ($SingleFile) { $publishArgs += "-p:PublishSingleFile=true" }

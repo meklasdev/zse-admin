@@ -68,6 +68,9 @@ Zakres, Poza zakresem, Kryteria akceptacji Given/When/Then, Testy i Definicja uk
 Kolejność sugerowana: ZAD-01 + ZAD-06 → ZAD-02 / ZAD-03 / ZAD-04 → ZAD-05 / ZAD-09 →
 ZAD-07 → ZAD-08 → ZAD-10. Jedno zadanie = jeden PR.
 
+Zrobione: ZAD-01 (PR #18), ZAD-06 (PR #19) i ZAD-11 (PR #21 — automatyczne zrzuty UI z realnego
+klienta WPF w `screenshots` job). Zrzuty 100/125/150% DPI są artefaktem CI, nie plikami w repo.
+
 WYMAGANIA KOŃCOWE:
 - `dotnet build -c Release` i `dotnet test` zielone na windows-latest (CI jest wiążące;
   lokalnie może nie być .NET SDK — wtedy napisz to wprost w opisie PR).

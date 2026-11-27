@@ -93,3 +93,146 @@ jobs:
             artifacts/server
             artifacts/client
           if-no-files-found: error
+
+  # ZAD-11 — zrzuty ekranu z REALNEGO klienta WPF (nie z makiety HTML), na danych przykładowych.
+  # Osobny job, bo wymaga serwera w tle i renderowania WPF; uruchamiany dla PR-ów i ręcznie.
+  screenshots:
+    name: Zrzuty UI (WPF, dane przykładowe)
+    runs-on: windows-latest
+    needs: build-and-test
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Pobranie kodu
+        uses: actions/checkout@v4
+
+      - name: .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Build
+        run: dotnet build ZseAdmin.sln -c Release
+
+      # Serwer i zrzuty w JEDNYM kroku: runner kończy procesy uruchomione w poprzednim
+      # kroku (cleanup po stepie), więc serwer w tle nie przetrwałby do następnego.
+      # UseMockData = true, tryb Token (dev), Development — bramka produkcyjna nie startuje.
+      - name: Serwer z danymi przykładowymi + zrzuty 100/125/150% DPI
+        shell: pwsh
+        run: |
+          $env:ASPNETCORE_ENVIRONMENT = "Development"
+          $env:ZseAdmin__UseMockData = "true"
+
+          # dotnet run ustawia content root na katalog projektu, więc wczytuje appsettings.json
+          # z tokenami deweloperskimi (uruchomienie samego .dll z repo root nie widzi konfiguracji
+          # i odrzuca połączenie jako nieuwierzytelnione).
+          $server = Start-Process dotnet `
+            -ArgumentList @(
+              "run", "--project", "src/ZseAdmin.Server", "-c", "Release", "--no-build",
+              "--no-launch-profile", "--urls", "http://127.0.0.1:5080"
+            ) `
+            -NoNewWindow -PassThru `
+            -RedirectStandardOutput "server.log" -RedirectStandardError "server.err"
+
+          try {
+            $ready = $false
+            for ($i = 0; $i -lt 60; $i++) {
+              try {
+                $response = Invoke-WebRequest "http://127.0.0.1:5080/healthz" -UseBasicParsing -TimeoutSec 2
+                if ($response.StatusCode -eq 200) { $ready = $true; break }
+              } catch {
+                Start-Sleep -Seconds 1
+              }
+            }
+
+            if (-not $ready) {
+              Get-Content server.log, server.err -ErrorAction SilentlyContinue
+              Write-Output "::error::Serwer nie odpowiedział na /healthz w 60 s."
+              exit 1
+            }
+
+            $health = (Invoke-WebRequest "http://127.0.0.1:5080/healthz" -UseBasicParsing).Content | ConvertFrom-Json
+            Write-Output "Serwer gotowy: mockData=$($health.mockData), classrooms=$($health.classrooms), pid=$($server.Id)."
+
+            $arguments = @(
+              "run", "--project", "tools/ZseAdmin.Screenshots", "-c", "Release", "--no-build", "--",
+              "--out", "screenshots",
+              "--server", "ws://127.0.0.1:5080/ws",
+              "--token", "dev-admin-token",
+              "--wait", "120"
+            )
+
+            $output = & dotnet @arguments 2>&1 | Out-String
+            $code = $LASTEXITCODE
+            Write-Output $output
+
+            if ($code -ne 0) {
+              $flat = ($output -replace "`r?`n", " ").Trim()
+              if ($flat.Length -gt 900) { $flat = $flat.Substring(0, 900) + "…" }
+              Get-Content server.log, server.err -ErrorAction SilentlyContinue
+              Write-Output "::error::Zrzuty nie powstały (kod $code): $flat"
+              exit $code
+            }
+          }
+          finally {
+            if ($server -and -not $server.HasExited) {
+              Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
+            }
+          }
+
+      # Diagnostyka, gdy zrzuty się nie powiodą: log serwera wyjaśnia brak danych.
+      - name: Log serwera (tylko przy błędzie)
+        if: failure()
+        shell: pwsh
+        run: Get-Content server.log, server.err -ErrorAction SilentlyContinue
+
+      - name: Artefakt ze zrzutami
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-screenshots
+          path: screenshots/*.png
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Podsumowanie w runie
+        shell: pwsh
+        run: |
+          $summary = $env:GITHUB_STEP_SUMMARY
+          Add-Content $summary "## Zrzuty UI (100/125/150% DPI)"
+          Add-Content $summary ""
+          Add-Content $summary "Realny ``MainWindow.xaml`` + serwer z ``UseMockData = true`` (ZAD-11). Artefakt: **ui-screenshots**."
+          Add-Content $summary ""
+          Get-ChildItem screenshots/*.png | Sort-Object Name | ForEach-Object {
+            Add-Content $summary ("- ``{0}`` — {1:N0} kB" -f $_.Name, ($_.Length / 1KB))
+          }
+
+      # Link do artefaktów w komentarzu PR; nie blokuje job-a, jeśli API odrzuci zapis.
+      - name: Komentarz w PR z linkiem do zrzutów
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              '### Zrzuty UI (100/125/150% DPI)',
+              '',
+              'Wygenerowane z realnego klienta WPF (`MainWindow.xaml`) i serwera z danymi przykładowymi — bez makiety HTML.',
+              `Pobierz artefakt **ui-screenshots**: ${runUrl}#artifacts`
+            ].join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              ...context.repo,
+              issue_number: context.issue.number
+            });
+            const marker = 'Zrzuty UI (100/125/150% DPI)';
+            const existing = comments.find(c => c.body?.includes(marker) && c.user?.type === 'Bot');
+
+            if (existing) {
+              await github.rest.issues.updateComment({ ...context.repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
+            }

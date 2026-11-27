@@ -21,6 +21,9 @@ coverage*.xml
 ## Publikacja
 publish/
 artifacts/
+
+## Zrzuty UI generowane lokalnie (ZAD-11); w CI są artefaktem, nie plikiem w repo
+screenshots/
 *.publishsettings
 
 ## Narzędzia / środowisko
